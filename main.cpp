@@ -3,6 +3,9 @@
 
 #include "ObjectFreeList.h"
 
+#define LOGIC_TEST
+//#define SPEED_TEST
+
 
 class CTest {
 
@@ -10,41 +13,71 @@ public:
 	int a;
 
 	CTest() {
+		wprintf(L"\taddr: 0x%x, Constructor Call\n", this);
 	}
 
 	~CTest() {
+		wprintf(L"\taddr: 0x%x, Destructor Call\n",this);
 	}
 };
 
+#ifdef LOGIC_TEST
+void LogicTest() {
+
+	constexpr int OBJECT_NUM = 10;
+
+	CObjectFreeList<CTest> testFreeList;
+	CTest* arr[OBJECT_NUM];
+
+	// 기존에 할당받은 경우가 없을 때, 정상적으로 할당받을 수 있다.
+	// 이 때 생성자가 호출되었다.
+	wprintf(L"---------------------------------\n");
+	wprintf(L"ALLOC\n");
+	wprintf(L"---------------------------------\n");
+
+	for (int objectCnt = 0; objectCnt < OBJECT_NUM; ++objectCnt) {
+		arr[objectCnt] = testFreeList.alloc();
+		arr[objectCnt]->a = objectCnt;
+		wprintf(L"cnt: %d, addr: 0x%x, value: %d\n", objectCnt, arr[objectCnt], arr[objectCnt]->a);
+	}
+	wprintf(L"---------------------------------\n");
+
+	// 할당받은 경우, 해당 포인터로 반환할 수 있었다.
+	// 이때 소멸자가 호출되었다.
+	wprintf(L"---------------------------------\n");
+	wprintf(L"FREE\n");
+	wprintf(L"---------------------------------\n");
+
+	for (int objectCnt = 0; objectCnt < OBJECT_NUM; ++objectCnt) {
+		wprintf(L"cnt: %d, addr: 0x%x, value: %d\n", objectCnt, arr[objectCnt], arr[objectCnt]->a);
+		testFreeList.free(arr[objectCnt]);
+		arr[objectCnt] = nullptr;
+	}
+	wprintf(L"---------------------------------\n");
+
+	// 내가 해제한 포인터들을 재할당받을 수 있었다.
+	// 이 때 생성자가 호출되었다.
+	wprintf(L"---------------------------------\n");
+	wprintf(L"ALLOC\n");
+	wprintf(L"---------------------------------\n");
+
+	for (int objectCnt = 0; objectCnt < OBJECT_NUM; ++objectCnt) {
+		arr[objectCnt] = testFreeList.alloc();
+		wprintf(L"cnt: %d, addr: 0x%x, value: %d\n", objectCnt, arr[objectCnt], arr[objectCnt]->a);
+	}
+	wprintf(L"---------------------------------\n");
+
+	// freelist 객체가 소멸하면서 생성한 객체를 정리한다.
+}
+#endif
+
+
 int main() {
 
-	CObjectFreeList<CTest> freeList;
+#ifdef LOGIC_TEST
+	LogicTest();
+#endif 
 
-	CTest* a = freeList.alloc();
-	a->a = 1;
-	printf("%d ", a->a);
-
-	CTest* b = freeList.alloc();
-	b->a = 2;
-	printf("%d ", b->a);
-
-	CTest* c = freeList.alloc();
-	c->a = 3;
-	printf("%d ", c->a);
-
-	printf("\n");
-	freeList.free(a);
-	freeList.free(b);
-	freeList.free(c);
-
-	CTest* a2 = freeList.alloc();
-	CTest* b2 = freeList.alloc();
-	CTest* c2 = freeList.alloc();
-
-	printf("%d %d %d\n\n",a2->a, b2->a, c2->a);
-
-
-	printf("%d %d\n", freeList.getCapacity(), freeList.getUsedCount());
 
 	return 0;
 }

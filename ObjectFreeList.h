@@ -6,10 +6,9 @@ public:
 
 	struct stNode {
 		stNode() {
-			data = nullptr;
 			nextNode = nullptr;
 		}
-		T* data;
+		T data;
 		stNode* nextNode;
 	};
 
@@ -26,7 +25,7 @@ public:
 private:
 
 	struct stAllocList {
-		void* ptr;
+		stNode* ptr;
 		stAllocList* nextNode;
 	};
 
@@ -36,7 +35,7 @@ private:
 
 	unsigned int _usedCnt;
 
-	stAllocList* _allocList;
+	stAllocList* _allocNodeHead;
 
 };
 
@@ -44,13 +43,19 @@ template <typename T>
 CObjectFreeList<T>::CObjectFreeList() {
 
 	_freeNode = nullptr;
+	_allocNodeHead = nullptr;
 
 }
 
 template <typename T>
 CObjectFreeList<T>::~CObjectFreeList() {
 
-
+	while (_allocNodeHead != nullptr) {
+		stAllocList* nextNode = _allocNodeHead->nextNode;
+		delete _allocNodeHead->ptr;
+		delete _allocNodeHead;
+		_allocNodeHead = nextNode;
+	}
 
 }
 
@@ -61,15 +66,19 @@ T* CObjectFreeList<T>::alloc() {
 	if (_freeNode == nullptr) {
 
 		CObjectFreeList<T>::stNode* node = new CObjectFreeList<T>::stNode;
-		node->data = new T;
 
 		_capacity += 1;
 
-		return (T*)node;
+		stAllocList* listHead = _allocNodeHead;
+		_allocNodeHead = new stAllocList();
+		_allocNodeHead->ptr = node;
+		_allocNodeHead->nextNode = listHead;
+
+		return &node->data;
 
 	}
 
-	T* allocNode = (T*)_freeNode;
+	T* allocNode = &_freeNode->data;
 	_freeNode = _freeNode->nextNode;
 	new (allocNode) T();
 	return allocNode;
