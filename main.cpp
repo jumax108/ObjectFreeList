@@ -1,10 +1,12 @@
-﻿#include <stdio.h>
+﻿#include <Windows.h>
+#include <stdio.h>
 #include <new>
 
+#include "SimpleProfiler.h"
 #include "ObjectFreeList.h"
 
-#define LOGIC_TEST
-//#define SPEED_TEST
+//#define LOGIC_TEST
+#define SPEED_TEST
 
 
 class CTest {
@@ -13,16 +15,16 @@ public:
 	int a;
 
 	CTest() {
-		wprintf(L"\taddr: 0x%x, Constructor Call\n", this);
+		//wprintf(L"\taddr: 0x%x, Constructor Call\n", this);
 	}
 
 	~CTest() {
-		wprintf(L"\taddr: 0x%x, Destructor Call\n",this);
+		//wprintf(L"\taddr: 0x%x, Destructor Call\n",this);
 	}
 };
 
 #ifdef LOGIC_TEST
-void LogicTest() {
+void logicTest() {
 
 	constexpr int OBJECT_NUM = 10;
 
@@ -71,12 +73,61 @@ void LogicTest() {
 }
 #endif
 
+#ifdef SPEED_TEST
+void speedTest() {
+	SimpleProfiler sp;
+
+	CObjectFreeList<CTest> testFreeList;
+	
+	constexpr int TEST_NUM = 1000000;
+	CTest** arr = new CTest*[TEST_NUM];
+	CTest** arrBegin = arr;
+	CTest** arrEnd = arr + TEST_NUM;
+
+	for (CTest** arrIter = arrBegin; arrIter != arrEnd; ++arrIter) {
+		sp.profileBegin("c++ new");
+		*arrIter = new CTest();
+		sp.profileEnd("c++ new");
+	}
+
+	for (CTest** arrIter = arrBegin; arrIter != arrEnd; ++arrIter) {
+		sp.profileBegin("c++ delete");
+		delete* arrIter;
+		sp.profileEnd("c++ delete");
+	}
+
+	for (CTest** arrIter = arrBegin; arrIter != arrEnd; ++arrIter) {
+		sp.profileBegin("Alloc");
+		*arrIter = testFreeList.alloc();
+		sp.profileEnd("Alloc");
+	}
+	for (CTest** arrIter = arrBegin; arrIter != arrEnd; ++arrIter) {
+		sp.profileBegin("Free");
+		testFreeList.free(*arrIter);
+		sp.profileEnd("Free");
+	}
+	for (CTest** arrIter = arrBegin; arrIter != arrEnd; ++arrIter) {
+		sp.profileBegin("ReAlloc");
+		*arrIter = testFreeList.alloc();
+		sp.profileEnd("ReAlloc");
+	}
+
+	sp.printToFile();
+
+	delete[] arr;
+}
+#endif 
 
 int main() {
 
 #ifdef LOGIC_TEST
-	LogicTest();
+	logicTest();
 #endif 
+
+
+#ifdef SPEED_TEST
+	speedTest();
+#endif
 
 
 	return 0;

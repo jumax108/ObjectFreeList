@@ -45,6 +45,9 @@ CObjectFreeList<T>::CObjectFreeList() {
 	_freeNode = nullptr;
 	_allocNodeHead = nullptr;
 
+	_capacity = 0;
+	_usedCnt = 0;
+
 }
 
 template <typename T>
