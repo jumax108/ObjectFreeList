@@ -12,7 +12,7 @@ public:
 		stNode* nextNode;
 	};
 
-	CObjectFreeList();
+	CObjectFreeList(int _capacity = 0);
 	~CObjectFreeList();
 
 	T* alloc();
@@ -40,13 +40,23 @@ private:
 };
 
 template <typename T>
-CObjectFreeList<T>::CObjectFreeList() {
+CObjectFreeList<T>::CObjectFreeList(int size) {
 
 	_freeNode = nullptr;
 	_allocNodeHead = nullptr;
 
-	_capacity = 0;
+	_capacity = size;
 	_usedCnt = 0;
+
+	if (size == 0) {
+		return;
+	}
+
+	stNode* nodeArr = new stNode[size];
+	for (int nodeCnt = 0; nodeCnt < size - 1; ++nodeCnt) {
+		nodeArr[nodeCnt].nextNode = &nodeArr[nodeCnt + 1];
+	}
+	_freeNode = nodeArr;
 
 }
 
