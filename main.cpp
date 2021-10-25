@@ -5,8 +5,8 @@
 #include "SimpleProfiler.h"
 #include "ObjectFreeList.h"
 
-//#define LOGIC_TEST
-#define SPEED_TEST
+#define LOGIC_TEST
+//#define SPEED_TEST
 
 
 class CTest {
@@ -70,6 +70,63 @@ void logicTest() {
 	}
 	wprintf(L"---------------------------------\n");
 
+	// 할당 받은 포인터들에 대해서 언더플로우 발생
+	wprintf(L"---------------------------------\n");
+	wprintf(L"FREE UnderFlow\n");
+	wprintf(L"---------------------------------\n");
+	for (int objectCnt = 0; objectCnt < OBJECT_NUM; ++objectCnt) {
+		((CTest*)(((char*)arr[objectCnt]) - sizeof(void*)))->a = 123;
+		
+		{
+			// free underflow
+			int freeResult = testFreeList.free(arr[objectCnt]);
+			if (freeResult == -1) {
+				wprintf(L"underflow, addr: 0x%016I64x\n", arr[objectCnt]);
+			}
+		}
+
+		{
+			// 데이터 수정 후, 다시 해제 시도
+			((CTest*)(((char*)arr[objectCnt]) - sizeof(void*)))->a = 0xf9f9f9f9f9f9f9f9;
+			int freeResult = testFreeList.free(arr[objectCnt]);
+			if (freeResult == -1) {
+				wprintf(L"error: underflow, addr: 0x%016I64x\n", arr[objectCnt]);
+			}
+			if (freeResult == 1) {
+				wprintf(L"error: overflow, addr: 0x%016I64x\n", arr[objectCnt]);
+			}
+		}
+	}
+	wprintf(L"---------------------------------\n");
+
+	// 할당 받은 포인터들에 대해서 오버플로우 발생
+	wprintf(L"---------------------------------\n");
+	wprintf(L"FREE OverFlow\n");
+	wprintf(L"---------------------------------\n");
+	for (int objectCnt = 0; objectCnt < OBJECT_NUM; ++objectCnt) {
+		((CTest*)(((char*)arr[objectCnt]) + sizeof(void*)))->a = 123;
+
+		{
+			// free overFlow
+			int freeResult = testFreeList.free(arr[objectCnt]);
+			if (freeResult == 1) {
+				wprintf(L"overflow, addr: 0x%016I64x\n", arr[objectCnt]);
+			}
+		}
+
+		{
+			// 데이터 수정 후, 다시 해제 시도
+			((CTest*)(((char*)arr[objectCnt]) + sizeof(void*)))->a = 0xf9f9f9f9f9f9f9f9;
+			int freeResult = testFreeList.free(arr[objectCnt]);
+			if (freeResult == -1) {
+				wprintf(L"error: underflow, addr: 0x%016I64x\n", arr[objectCnt]);
+			}
+			if (freeResult == 1) {
+				wprintf(L"error: overflow, addr: 0x%016I64x\n", arr[objectCnt]);
+			}
+		}
+	}
+	wprintf(L"---------------------------------\n");
 	// freelist 객체가 소멸하면서 생성한 객체를 정리한다.
 }
 #endif
