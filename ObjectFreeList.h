@@ -7,8 +7,17 @@ public:
 	struct stNode {
 		stNode() {
 			nextNode = nullptr;
+#ifdef _WIN64
+			underFlowCheck = (void*)0xF9F9F9F9F9F9F9F9;
+			overFlowCheck = (void*)0xF9F9F9F9F9F9F9F9;
+#else
+			underFlowCheck = (void*)0xF9F9F9F9;
+			overFlowCheck = (void*)0xF9F9F9F9;
+#endif
 		}
+		void* underFlowCheck;
 		T data;
+		void* overFlowCheck;
 		stNode* nextNode;
 	};
 
@@ -17,7 +26,7 @@ public:
 
 	T* alloc();
 
-	void free(T* data);
+	int free(T* data);
 
 	inline unsigned int getCapacity() { return _capacity; }
 	inline unsigned int getUsedCount() { return _usedCnt; }
@@ -37,6 +46,8 @@ private:
 
 	stAllocList* _allocNodeHead;
 
+	// 데이터 포인트에 이 값을 더하면 노드 포인터가 된다 !
+	int dataPtrToNodePtr;
 };
 
 template <typename T>
@@ -58,6 +69,8 @@ CObjectFreeList<T>::CObjectFreeList(int size) {
 	}
 	_freeNode = nodeArr;
 
+	stNode node;
+	dataPtrToNodePtr = ((char*)&node) - ((char*)&node.data);
 }
 
 template <typename T>
@@ -98,11 +111,34 @@ T* CObjectFreeList<T>::alloc() {
 }
 
 template <typename T>
-void CObjectFreeList<T>::free(T* data) {
+int CObjectFreeList<T>::free(T* data) {
 
-	((stNode*)data)->nextNode = _freeNode;
-	_freeNode = (stNode*)data;
+	stNode* usedNode = (stNode*)(((char*)data) + dataPtrToNodePtr);
+
+#ifdef _WIN64
+	if (usedNode->underFlowCheck != (void*)0xF9F9F9F9F9F9F9F9) {
+		// underflow
+		return -1;
+	}
+	if (usedNode->overFlowCheck != (void*)0xF9F9F9F9F9F9F9F9) {
+		// overflow
+		return 1;
+	}
+#else
+	if (usedNode->underFlowCheck != (void*)0xF9F9F9F9) {
+		// underflow
+		return -1;
+	}
+	if (usedNode->overFlowCheck != (void*)0xF9F9F9F9) {
+		// overflow
+		return 1;
+	}
+#endif
+
+	usedNode->nextNode = _freeNode;
+	_freeNode = usedNode;
 	_usedCnt -= 1;
 	data->~T();
 
+	return 0;
 }
