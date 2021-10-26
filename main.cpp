@@ -1,6 +1,7 @@
 ﻿#include <Windows.h>
 #include <stdio.h>
 #include <new>
+#include <locale>
 
 #include "SimpleProfiler.h"
 #include "ObjectFreeList.h"
@@ -16,11 +17,23 @@ public:
 
 	CTest() {
 		a = 0;
-		//wprintf(L"\taddr: 0x%x, Constructor Call\n", this);
+		#if defined(LOGIC_TEST)
+			#ifdef _WIN64
+				wprintf(L"\taddr: 0x%016I64x, Constructor Call\n", (unsigned __int64)this);
+			#else
+				wprintf(L"\taddr: 0x%08x, Constructor Call\n", (unsigned int)this);
+			#endif
+		#endif
 	}
 
-	~CTest() {
-		//wprintf(L"\taddr: 0x%x, Destructor Call\n",this);
+	__declspec(noinline) ~CTest() {
+		#if defined(LOGIC_TEST)
+			#ifdef _WIN64
+				wprintf(L"\taddr: 0x%016I64x, Destructor Call\n", (unsigned __int64)this);
+			#else
+				wprintf(L"\taddr: 0x%08x, Destructor Call\n", (unsigned int)this);
+			#endif
+		#endif
 	}
 };
 
@@ -41,7 +54,11 @@ void logicTest() {
 	for (int objectCnt = 0; objectCnt < OBJECT_NUM; ++objectCnt) {
 		arr[objectCnt] = testFreeList.alloc();
 		arr[objectCnt]->a = objectCnt;
-		wprintf(L"cnt: %d, addr: 0x%016I64x, value: %d\n", objectCnt, arr[objectCnt], arr[objectCnt]->a);
+		#ifdef _WIN64
+			wprintf(L"cnt: %d, addr: 0x%016I64x, value: %d\n", objectCnt, (unsigned __int64)arr[objectCnt], arr[objectCnt]->a);
+		#else
+			wprintf(L"cnt: %d, addr: 0x%08x, value: %d\n", objectCnt, (unsigned int)arr[objectCnt], arr[objectCnt]->a);
+		#endif
 	}
 	wprintf(L"---------------------------------\n");
 
@@ -52,7 +69,11 @@ void logicTest() {
 	wprintf(L"---------------------------------\n");
 
 	for (int objectCnt = 0; objectCnt < OBJECT_NUM; ++objectCnt) {
-		wprintf(L"cnt: %d, addr: 0x%016I64x, value: %d\n", objectCnt, arr[objectCnt], arr[objectCnt]->a);
+		#ifdef _WIN64
+			wprintf(L"cnt: %d, addr: 0x%016I64x, value: %d\n", objectCnt, (unsigned __int64)arr[objectCnt], arr[objectCnt]->a);
+		#else
+			wprintf(L"cnt: %d, addr: 0x%08x, value: %d\n", objectCnt, (unsigned int)arr[objectCnt], arr[objectCnt]->a);
+		#endif
 		testFreeList.free(arr[objectCnt]);
 		arr[objectCnt] = nullptr;
 	}
@@ -66,7 +87,11 @@ void logicTest() {
 
 	for (int objectCnt = 0; objectCnt < OBJECT_NUM; ++objectCnt) {
 		arr[objectCnt] = testFreeList.alloc();
-		wprintf(L"cnt: %d, addr: 0x%016I64x, value: %d\n", objectCnt, arr[objectCnt], arr[objectCnt]->a);
+		#ifdef _WIN64
+			wprintf(L"cnt: %d, addr: 0x%016I64x, value: %d\n", objectCnt, (unsigned __int64)arr[objectCnt], arr[objectCnt]->a);
+		#else
+			wprintf(L"cnt: %d, addr: 0x%08x, value: %d\n", objectCnt, (unsigned int)arr[objectCnt], arr[objectCnt]->a);
+		#endif
 	}
 	wprintf(L"---------------------------------\n");
 
@@ -74,14 +99,18 @@ void logicTest() {
 	wprintf(L"---------------------------------\n");
 	wprintf(L"FREE UnderFlow\n");
 	wprintf(L"---------------------------------\n");
-	for (int objectCnt = 0; objectCnt < OBJECT_NUM; ++objectCnt) {
+	for (int objectCnt = 0; objectCnt < OBJECT_NUM / 2; ++objectCnt) {
 		((CTest*)(((char*)arr[objectCnt]) - sizeof(void*)))->a = 123;
 		
 		{
 			// free underflow
 			int freeResult = testFreeList.free(arr[objectCnt]);
 			if (freeResult == -1) {
-				wprintf(L"underflow, addr: 0x%016I64x\n", arr[objectCnt]);
+				#ifdef _WIN64
+					wprintf(L"underflow, addr: 0x%016I64x\n", (unsigned __int64)arr[objectCnt]);
+				#else
+					wprintf(L"underflow, addr: 0x%08x\n", (unsigned int)arr[objectCnt]);
+				#endif
 			}
 		}
 
@@ -90,10 +119,18 @@ void logicTest() {
 			((CTest*)(((char*)arr[objectCnt]) - sizeof(void*)))->a = 0xf9f9f9f9f9f9f9f9;
 			int freeResult = testFreeList.free(arr[objectCnt]);
 			if (freeResult == -1) {
-				wprintf(L"error: underflow, addr: 0x%016I64x\n", arr[objectCnt]);
+				#ifdef _WIN64
+					wprintf(L"error: underflow, addr: 0x%016I64x\n", (unsigned __int64)arr[objectCnt]);
+				#else
+					wprintf(L"error: underflow, addr: 0x%08x\n", (unsigned int)arr[objectCnt]);
+				#endif
 			}
 			if (freeResult == 1) {
-				wprintf(L"error: overflow, addr: 0x%016I64x\n", arr[objectCnt]);
+				#ifdef _WIN64
+					wprintf(L"error: overflow, addr: 0x%016I64x\n", (unsigned __int64)arr[objectCnt]);
+				#else
+					wprintf(L"error: overflow, addr: 0x%08x\n", (unsigned int)arr[objectCnt]);
+				#endif
 			}
 		}
 	}
@@ -103,14 +140,18 @@ void logicTest() {
 	wprintf(L"---------------------------------\n");
 	wprintf(L"FREE OverFlow\n");
 	wprintf(L"---------------------------------\n");
-	for (int objectCnt = 0; objectCnt < OBJECT_NUM; ++objectCnt) {
+	for (int objectCnt = OBJECT_NUM / 2; objectCnt < OBJECT_NUM; ++objectCnt) {
 		((CTest*)(((char*)arr[objectCnt]) + sizeof(void*)))->a = 123;
 
 		{
 			// free overFlow
 			int freeResult = testFreeList.free(arr[objectCnt]);
 			if (freeResult == 1) {
-				wprintf(L"overflow, addr: 0x%016I64x\n", arr[objectCnt]);
+				#ifdef _WIN64
+					wprintf(L"overflow, addr: 0x%016I64x\n", (unsigned __int64)arr[objectCnt]);
+				#else
+					wprintf(L"overflow, addr: 0x%08x\n", (unsigned int)arr[objectCnt]);
+				#endif
 			}
 		}
 
@@ -119,14 +160,53 @@ void logicTest() {
 			((CTest*)(((char*)arr[objectCnt]) + sizeof(void*)))->a = 0xf9f9f9f9f9f9f9f9;
 			int freeResult = testFreeList.free(arr[objectCnt]);
 			if (freeResult == -1) {
-				wprintf(L"error: underflow, addr: 0x%016I64x\n", arr[objectCnt]);
+				#ifdef _WIN64
+					wprintf(L"error: underflow, addr: 0x%016I64x\n", (unsigned __int64)arr[objectCnt]);
+				#else
+					wprintf(L"error: underflow, addr: 0x%08x\n", (unsigned int)arr[objectCnt]);
+				#endif
 			}
 			if (freeResult == 1) {
-				wprintf(L"error: overflow, addr: 0x%016I64x\n", arr[objectCnt]);
+				#ifdef _WIN64
+					wprintf(L"error: overflow, addr: 0x%016I64x\n", (unsigned __int64)arr[objectCnt]);
+				#else
+					wprintf(L"error: overflow, addr: 0x%08x\n", (unsigned int)arr[objectCnt]);
+				#endif
 			}
 		}
 	}
 	wprintf(L"---------------------------------\n");
+
+
+	// 중복 free 시 예외처리
+	
+	wprintf(L"---------------------------------\n");
+	wprintf(L"중복 Free\n");
+	wprintf(L"---------------------------------\n");
+
+	for (int arrCnt = 0; arrCnt < OBJECT_NUM; ++arrCnt) {
+
+		arr[arrCnt] = testFreeList.alloc();
+	}
+
+	for (int arrCnt = 0; arrCnt < OBJECT_NUM; ++arrCnt) {
+		int freeResult = testFreeList.free(arr[arrCnt]);
+		freeResult = testFreeList.free(arr[arrCnt]);
+		if (freeResult == -2) {
+			#ifdef _WIN64
+				wprintf(L"중복 free, addr: 0x%016I64x\n", (unsigned __int64)arr[arrCnt]);
+			#else
+				wprintf(L"중복 free, addr: 0x%08x\n", (unsigned int)arr[arrCnt]);
+			#endif
+		}
+		else {
+			wprintf(L"error: freeResult: %d\n", freeResult);
+		}
+	}
+	wprintf(L"---------------------------------\n");
+	
+
+
 	// freelist 객체가 소멸하면서 생성한 객체를 정리한다.
 }
 #endif
@@ -157,7 +237,11 @@ void speedTest() {
 		sp.profileEnd("c++ new");
 	}
 
-	wprintf(L"minPtr: 0x%016I64x, maxPtr: 0x%016I64x, distance: %I64d\n", (__int64)minPtr, (__int64)maxPtr, (__int64)maxPtr - (__int64)minPtr);
+	#ifdef _WIN64
+		wprintf(L"minPtr: 0x%016I64x, maxPtr: 0x%016I64x, distance: %I64d\n", (unsigned __int64)minPtr, (unsigned __int64)maxPtr, (unsigned __int64)maxPtr - (unsigned __int64)minPtr);
+	#else
+		wprintf(L"minPtr: 0x%08x, maxPtr: 0x%08x, distance: %d\n", (unsigned int)minPtr, (unsigned int)maxPtr, (unsigned int)maxPtr - (unsigned int)minPtr);
+	#endif
 
 	for (CTest** arrIter = arrBegin; arrIter != arrEnd; ++arrIter) {
 		sp.profileBegin("c++ delete");
@@ -171,7 +255,11 @@ void speedTest() {
 		sp.profileEnd("ReAlloc");
 	}
 
-	wprintf(L"minPtr: 0x%016I64x, maxPtr: 0x%016I64x. distance: %I64d\n", (__int64)arr[0], (__int64)arr[TEST_NUM - 1], (__int64)arr[TEST_NUM-1] - (__int64)arr[0]);
+	#ifdef _WIN64
+		wprintf(L"minPtr: 0x%016I64x, maxPtr: 0x%016I64x. distance: %I64d\n", (unsigned __int64)arr[0], (unsigned __int64)arr[TEST_NUM - 1], (unsigned __int64)arr[TEST_NUM - 1] - (unsigned __int64)arr[0]);
+	#else
+		wprintf(L"minPtr: 0x%08x, maxPtr: 0x%08x. distance: %d\n", (unsigned int)arr[0], (unsigned int)arr[TEST_NUM - 1], (unsigned int)arr[TEST_NUM - 1] - (unsigned int)arr[0]);
+	#endif
 
 	for (CTest** arrIter = arrBegin; arrIter != arrEnd; ++arrIter) {
 		sp.profileBegin("Free");
@@ -186,6 +274,8 @@ void speedTest() {
 #endif 
 
 int main() {
+
+	setlocale(LC_ALL, "");
 
 #ifdef LOGIC_TEST
 	logicTest();
