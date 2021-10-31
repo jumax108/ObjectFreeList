@@ -52,7 +52,7 @@ void logicTest() {
 	wprintf(L"---------------------------------\n");
 
 	for (int objectCnt = 0; objectCnt < OBJECT_NUM; ++objectCnt) {
-		arr[objectCnt] = testFreeList.alloc();
+		arr[objectCnt] = testFreeList.allocObject();
 		arr[objectCnt]->a = objectCnt;
 		#ifdef _WIN64
 			wprintf(L"cnt: %d, addr: 0x%016I64x, value: %d\n", objectCnt, (unsigned __int64)arr[objectCnt], arr[objectCnt]->a);
@@ -74,7 +74,7 @@ void logicTest() {
 		#else
 			wprintf(L"cnt: %d, addr: 0x%08x, value: %d\n", objectCnt, (unsigned int)arr[objectCnt], arr[objectCnt]->a);
 		#endif
-		testFreeList.free(arr[objectCnt]);
+		testFreeList.freeObject(arr[objectCnt]);
 		arr[objectCnt] = nullptr;
 	}
 	wprintf(L"---------------------------------\n");
@@ -86,7 +86,7 @@ void logicTest() {
 	wprintf(L"---------------------------------\n");
 
 	for (int objectCnt = 0; objectCnt < OBJECT_NUM; ++objectCnt) {
-		arr[objectCnt] = testFreeList.alloc();
+		arr[objectCnt] = testFreeList.allocObject();
 		#ifdef _WIN64
 			wprintf(L"cnt: %d, addr: 0x%016I64x, value: %d\n", objectCnt, (unsigned __int64)arr[objectCnt], arr[objectCnt]->a);
 		#else
@@ -104,7 +104,7 @@ void logicTest() {
 		
 		{
 			// free underflow
-			int freeResult = testFreeList.free(arr[objectCnt]);
+			int freeResult = testFreeList.freeObject(arr[objectCnt]);
 			if (freeResult == -1) {
 				#ifdef _WIN64
 					wprintf(L"underflow, addr: 0x%016I64x\n", (unsigned __int64)arr[objectCnt]);
@@ -117,7 +117,7 @@ void logicTest() {
 		{
 			// 데이터 수정 후, 다시 해제 시도
 			((CTest*)(((char*)arr[objectCnt]) - sizeof(void*)))->a = 0xf9f9f9f9f9f9f9f9;
-			int freeResult = testFreeList.free(arr[objectCnt]);
+			int freeResult = testFreeList.freeObject(arr[objectCnt]);
 			if (freeResult == -1) {
 				#ifdef _WIN64
 					wprintf(L"error: underflow, addr: 0x%016I64x\n", (unsigned __int64)arr[objectCnt]);
@@ -145,7 +145,7 @@ void logicTest() {
 
 		{
 			// free overFlow
-			int freeResult = testFreeList.free(arr[objectCnt]);
+			int freeResult = testFreeList.freeObject(arr[objectCnt]);
 			if (freeResult == 1) {
 				#ifdef _WIN64
 					wprintf(L"overflow, addr: 0x%016I64x\n", (unsigned __int64)arr[objectCnt]);
@@ -158,7 +158,7 @@ void logicTest() {
 		{
 			// 데이터 수정 후, 다시 해제 시도
 			((CTest*)(((char*)arr[objectCnt]) + sizeof(void*)))->a = 0xf9f9f9f9f9f9f9f9;
-			int freeResult = testFreeList.free(arr[objectCnt]);
+			int freeResult = testFreeList.freeObject(arr[objectCnt]);
 			if (freeResult == -1) {
 				#ifdef _WIN64
 					wprintf(L"error: underflow, addr: 0x%016I64x\n", (unsigned __int64)arr[objectCnt]);
@@ -186,12 +186,12 @@ void logicTest() {
 
 	for (int arrCnt = 0; arrCnt < OBJECT_NUM; ++arrCnt) {
 
-		arr[arrCnt] = testFreeList.alloc();
+		arr[arrCnt] = testFreeList.allocObject();
 	}
 
 	for (int arrCnt = 0; arrCnt < OBJECT_NUM; ++arrCnt) {
-		int freeResult = testFreeList.free(arr[arrCnt]);
-		freeResult = testFreeList.free(arr[arrCnt]);
+		int freeResult = testFreeList.freeObject(arr[arrCnt]);
+		freeResult = testFreeList.freeObject(arr[arrCnt]);
 		if (freeResult == -2) {
 			#ifdef _WIN64
 				wprintf(L"중복 free, addr: 0x%016I64x\n", (unsigned __int64)arr[arrCnt]);
@@ -205,8 +205,15 @@ void logicTest() {
 	}
 	wprintf(L"---------------------------------\n");
 	
+	// 메모리 누수 체크
+	wprintf(L"---------------------------------\n");
+	wprintf(L"메모리 누수 체크\n");
+	wprintf(L"---------------------------------\n");
+	for (int arrCnt = 0; arrCnt < OBJECT_NUM/2; ++arrCnt) {
 
-
+		arr[arrCnt] = testFreeList.allocObject();
+	}
+	wprintf(L"---------------------------------\n");
 	// freelist 객체가 소멸하면서 생성한 객체를 정리한다.
 }
 #endif
@@ -251,7 +258,7 @@ void speedTest() {
 
 	for (CTest** arrIter = arrBegin; arrIter != arrEnd; ++arrIter) {
 		sp.profileBegin("ReAlloc");
-		*arrIter = testFreeList.alloc();
+		*arrIter = testFreeList.allocObject();
 		sp.profileEnd("ReAlloc");
 	}
 
@@ -263,7 +270,7 @@ void speedTest() {
 
 	for (CTest** arrIter = arrBegin; arrIter != arrEnd; ++arrIter) {
 		sp.profileBegin("Free");
-		testFreeList.free(*arrIter);
+		testFreeList.freeObject(*arrIter);
 		sp.profileEnd("Free");
 	}
 

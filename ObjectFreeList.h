@@ -2,6 +2,9 @@
 
 class CAllocList;
 
+#define allocObject() _allocObject(__FILEW__, __LINE__)
+#define freeObject(x) _freeObject(x, __FILEW__, __LINE__)
+
 template<typename T>
 struct stNode {
 	stNode() {
@@ -31,6 +34,14 @@ struct stNode {
 	// 배열 수정해도 같이 수정되도록 배열의 주소를 저장합니다.
 	// 최상단 비트가 1이면 alloc 함수를 통해 할당된 상태입니다.
 	void** allocListPtr;
+
+	// 소스 파일 이름
+	const wchar_t* allocSourceFileName;
+	const wchar_t* freeSourceFileName;
+
+	// 소스 라인
+	int allocLine;
+	int freeLine;
 };
 
 template<typename T>
@@ -41,9 +52,9 @@ public:
 	CObjectFreeList(int _capacity = 0);
 	~CObjectFreeList();
 
-	T* alloc();
+	T* _allocObject(const wchar_t*, int);
 
-	int free(T* data);
+	int _freeObject(T* data, const wchar_t*, int);
 
 	inline unsigned int getCapacity() { return _capacity; }
 	inline unsigned int getUsedCount() { return _usedCnt; }
@@ -65,19 +76,9 @@ private:
 	int _dataPtrToNodePtr;
 
 	// 할당 받은 포인터를 저장하는 배열
-	// 인덱스는 하위비트 20개로 사용합니다.
 	// 여기서 노드 하나 하나의 포인터를 관리합니다.
 	CAllocList* _ptrList;
 
-	// 하위 비트를 BIT_NUM_TO_INDEX의 개수만큼 뽑기위한 마스크
-	int _mask;
-
-	// 하위 비트 몇개를 인덱스로 사용할지 결정
-	#ifdef _WIN64
-		const unsigned short BIT_NUM_TO_INDEX = 20;
-	#else
-		const unsigned short BIT_NUM_TO_INDEX = 10;
-	#endif
 
 	// 메모리 정리용
 	// 단순 리스트
@@ -90,8 +91,6 @@ private:
 	// new stNode[100] 이면 node[0]만 저장되어있는 식입니다.
 	// freeList 소멸자에서 메모리 정리용으로 사용합니다.
 	 
-	// 단일로 new한 포인터들
-	stSimpleListNode* allocList;
 	// 배열로 new한 포인터들
 	stSimpleListNode* arrAllocList;
 
@@ -99,13 +98,11 @@ private:
 	int ptrToIndex(void*);
 
 	// 실제로 stNode 를 윈도우에서 할당받는 곳입니다.
-	// 배열이 아닌 단일 객체를 할당받을 때 사용합니다.
-	stNode<T>* actualSingleAlloc();
-
-	// 실제로 stNode 를 윈도우에서 할당받는 곳입니다.
 	// 배열로 할당받습니다.
 	stNode<T>* actualArrayAlloc(int size);
 
+	// 오브젝트를 2배로 할당합니다.
+	void resize();
 };
 
 class CAllocList {
@@ -115,55 +112,58 @@ public:
 	template<typename T>
 	void push(void* data);
 
-	inline void** begin() { return arr; }
-	inline void** end() { return arr + size; }
+	inline void** begin() { return _arr; }
+	inline void** end() { return _arr + _size; }
 
 	// 무조건 2배로 증가
 	template<typename T>
 	void resize();
 
-	CAllocList();
+	CAllocList(unsigned int cap = 10);
 	~CAllocList();
+
+	template<typename T>
+	friend class CObjectFreeList;
 
 private:
 
-	void** arr;
-	unsigned int cap;
-	unsigned int size;
+	void** _arr;
+	unsigned int _cap;
+	unsigned int _size;
 
 };
 
-CAllocList::CAllocList() {
-	cap = 10;
-	size = 0;
-	arr = new void* [cap];
+CAllocList::CAllocList(unsigned int cap) {
+	_cap = 10;
+	_size = 0;
+	_arr = new void* [cap];
 
 }
 
 CAllocList::~CAllocList() {
-	delete[] arr;
+	delete[] _arr;
 }
 
 template<typename T>
 void CAllocList::push(void* data) {
-	if (size >= cap) {
+	if (_size >= _cap) {
 		resize<T>();
 	}
-	arr[size] = data;
-	((stNode<T>*)data)->allocListPtr = &arr[size];
-	size += 1;
+	_arr[size] = data;
+	((stNode<T>*)data)->allocListPtr = &_arr[size];
+	_size += 1;
 }
 
 template<typename T>
 void CAllocList::resize() {
-	void** oldArr = arr;
+	void** oldArr = _arr;
 
-	cap *= 2;
-	arr = new void* [cap];
+	_cap *= 2;
+	_arr = new void* [_cap];
 
-	for (int arrCnt = 0; arrCnt < size; ++arrCnt) {
-		arr[arrCnt] = oldArr[arrCnt];
-		((stNode<T>*)(arr[arrCnt]))->allocListPtr = &arr[arrCnt];
+	for (int arrCnt = 0; arrCnt < _size; ++arrCnt) {
+		_arr[arrCnt] = oldArr[arrCnt];
+		((stNode<T>*)(_arr[arrCnt]))->allocListPtr = &_arr[arrCnt];
 	}
 
 	delete[](oldArr);
@@ -172,7 +172,6 @@ void CAllocList::resize() {
 template <typename T>
 CObjectFreeList<T>::CObjectFreeList(int size) {
 
-	allocList = nullptr;
 	arrAllocList = nullptr;
 	_freeNode = nullptr;
 
@@ -183,31 +182,9 @@ CObjectFreeList<T>::CObjectFreeList(int size) {
 		return;
 	}
 
-	_ptrList = new CAllocList[BIT_NUM_TO_INDEX];
-	for (int bitCnt = 0; bitCnt < BIT_NUM_TO_INDEX - 1; ++bitCnt) {
-		_mask = (_mask + 1) << 1;
-	}
-	_mask += 1;
+	_ptrList = new CAllocList(_capacity);
 
-	stNode<T>* nodeArr = actualArrayAlloc(_capacity);
-
-	stNode<T>* nodeEnd = nodeArr + size;
-	for (stNode<T>* nodeIter = nodeArr;;) {
-
-		stNode<T>* node = nodeIter;
-		++nodeIter;
-
-		int index = ptrToIndex(node);
-		_ptrList[index].push<T>(node);
-
-		if (nodeIter == nodeEnd) {
-			break;
-		}
-
-		node->nextNode = nodeIter;
-	}
-	_freeNode = nodeArr;
-
+    actualArrayAlloc(_capacity);
 	stNode<T> node;
 	_dataPtrToNodePtr = ((char*)&node) - ((char*)&node.data);
 
@@ -216,12 +193,27 @@ CObjectFreeList<T>::CObjectFreeList(int size) {
 template <typename T>
 CObjectFreeList<T>::~CObjectFreeList() {
 
-	while (allocList != nullptr) {
-		stSimpleListNode* nextNode = allocList->next;
-		delete (stNode<T>*)(allocList->ptr);
-		delete allocList;
-		allocList = nextNode;
+	for(int allocCnt = 0; allocCnt < _ptrList[allocListCnt].size; ++allocCnt){
+		stNode<T>* node = (stNode<T>*)_ptrList[allocListCnt].arr[allocCnt];
+
+		#if defined(_WIN64)
+			if ((unsigned __int64)node & 0x8000000000000000) {
+				unsigned __int64 temp = (unsigned __int64)node;
+				temp &= 0x7FFFFFFFFFFFFFF;
+				node = (stNode<T>*)temp;
+				wprintf(L"메모리 누수\n ptr: 0x%016I64x\n allocFile: %s\n allocLine: %d\n", &node->data, node->allocSourceFileName, node->allocLine);
+			}
+		#else
+			if ((unsigned int)node & 0x80000000) {
+				unsigned int temp = (unsigned int)node;
+				temp &= 0x7FFFFFFF;
+				node = (stNode<T>*)temp;
+				wprintf(L"메모리 누수\n ptr: 0x%08x\n allocFile: %s\n allocLine: %d\n", &node->data, node->allocSourceFileName, node->allocLine);
+			}
+		#endif
+
 	}
+	
 
 	while (arrAllocList != nullptr) {
 		stSimpleListNode* nextNode = arrAllocList->next;
@@ -235,41 +227,41 @@ CObjectFreeList<T>::~CObjectFreeList() {
 }
 
 template<typename T>
-T* CObjectFreeList<T>::alloc() {
+T* CObjectFreeList<T>::_allocObject(const wchar_t* fileName, int line) {
 
 	_usedCnt += 1;
 	if (_freeNode == nullptr) {
 
-		stNode<T>* node = actualSingleAlloc();
+		resize();
 
-		_capacity += 1;
-
-		int index = ptrToIndex(node);
-		_ptrList[index].push<T>(node);
-
-		return &node->data;
+		wprintf(L"ObjectFreeList, resize()\nfileName: %s\nline: %d\n", fileName, line);
 
 	}
 
-	T* allocNode = &_freeNode->data;
+	stNode<T>* allocNode = _freeNode;
 
 	#ifdef _WIN64
-		unsigned __int64 ptrTemp = (unsigned __int64)(*(_freeNode->allocListPtr));
+		unsigned __int64 ptrTemp = (unsigned __int64)(*(allocNode->allocListPtr));
 		ptrTemp |= 0x8000000000000000;
 	#else
 		unsigned int ptrTemp = (unsigned int)(*(_freeNode->allocListPtr));
 		ptrTemp |= 0x80000000;
 	#endif
 
-	*(_freeNode->allocListPtr) = (void*)ptrTemp;
+	*(allocNode->allocListPtr) = (void*)ptrTemp;
+
+	allocNode->allocSourceFileName = fileName;
+	allocNode->allocLine = line;
+
 	_freeNode = _freeNode->nextNode;
 
-	new (allocNode) T();
-	return allocNode;
+	new (&(allocNode->data)) T();
+
+	return &(allocNode->data);
 }
 
 template <typename T>
-int CObjectFreeList<T>::free(T* data) {
+int CObjectFreeList<T>::_freeObject(T* data, const wchar_t* fileName, int line) {
 
 	stNode<T>* usedNode = (stNode<T>*)(((char*)data) + _dataPtrToNodePtr);
 
@@ -308,6 +300,8 @@ int CObjectFreeList<T>::free(T* data) {
 	*(usedNode->allocListPtr) = (void*)ptrTemp;
 #endif
 
+	usedNode->freeSourceFileName = fileName;
+	usedNode->freeLine = line;
 
 	usedNode->nextNode = _freeNode;
 
@@ -335,19 +329,6 @@ int CObjectFreeList<T>::ptrToIndex(void* ptr) {
 }
 
 template<typename T>
-stNode<T>* CObjectFreeList<T>::actualSingleAlloc() {
-
-	stNode<T>* node = new stNode<T>;
-
-	stSimpleListNode* allocNode = new stSimpleListNode;
-	allocNode->ptr = node;
-	allocNode->next = allocList;
-	allocList = allocNode;
-
-	return node;
-}
-
-template<typename T>
 stNode<T>* CObjectFreeList<T>::actualArrayAlloc(int size) {
 
 	stNode<T>* nodeArr = new stNode<T>[size];
@@ -357,5 +338,31 @@ stNode<T>* CObjectFreeList<T>::actualArrayAlloc(int size) {
 	arrAllocNode->next = arrAllocList;
 	arrAllocList = arrAllocNode;
 
+	stNode<T>* nodeEnd = nodeArr + size;
+	for (stNode<T>* nodeIter = nodeArr;;) {
+
+		stNode<T>* node = nodeIter;
+		++nodeIter;
+
+		int index = ptrToIndex(node);
+		_ptrList[index].push<T>(node);
+
+		if (nodeIter == nodeEnd) {
+			break;
+		}
+
+		node->nextNode = nodeIter;
+	}
+	_freeNode = nodeArr;
+
 	return nodeArr;
+}
+
+template<typename T>
+void CObjectFreeList<T>::resize(){
+	
+	actualArrayAlloc(_capacity);
+
+	_capacity <<= 1;
+
 }
