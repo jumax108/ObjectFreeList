@@ -5,9 +5,11 @@
 #include <DbgHelp.h>
 #include <thread>
 
-#include "dump.h"
-#include "SimpleProfiler.h"
-#include "ObjectFreeList.h"
+#include "lib/profiler/headers/profiler.h"
+#pragma comment(lib, "lib/profiler/profiler")
+
+#include "../headers/ObjectFreeList.h"
+#pragma comment(lib, "../release/ObjectFreeList")
 
 #define LOGIC_TEST
 
@@ -25,8 +27,8 @@ struct stNode{
 };
 
 #ifdef LOGIC_TEST
-constexpr int ALLOC_NUM_EACH_THREAD = 1000;
-constexpr int THREAD_NUM = 5;
+constexpr int ALLOC_NUM_EACH_THREAD = 2;
+constexpr int THREAD_NUM = 3;
 constexpr int MAX_ALLOC_NUM = ALLOC_NUM_EACH_THREAD * THREAD_NUM;
 CObjectFreeList<stNode>* nodeFreeList;
 unsigned int tps = 0;
@@ -58,8 +60,9 @@ unsigned __stdcall logicTestThreadFunc(void* arg){
 
 		// 1. 노드를 ALLOC_NUM_EACH_THREAD 만큼 할당받는다.
 		for(int nodeCnt = 0; nodeCnt < ALLOC_NUM_EACH_THREAD; ++nodeCnt){
-			nodeArr[nodeCnt] = nodeFreeList->allocObject(thread);
+			nodeArr[nodeCnt] = nodeFreeList->allocObject();
 		}
+		Sleep(0);
 
 		// 2. 노드의 모든 데이터가 초기값과 일치하는지 확인한다.
 		for(int nodeCnt = 0; nodeCnt < ALLOC_NUM_EACH_THREAD; ++nodeCnt){
@@ -121,7 +124,7 @@ unsigned __stdcall logicTestThreadFunc(void* arg){
 		for(int nodeCnt = 0; nodeCnt < ALLOC_NUM_EACH_THREAD; ++nodeCnt){
 
 			stNode* node = nodeArr[nodeCnt];
-			nodeFreeList->freeObject(node, thread);
+			nodeFreeList->freeObject(node);
 
 		}
 		
@@ -141,10 +144,7 @@ unsigned __stdcall logicTestThreadFunc(void* arg){
 
 void logicTest() {
 
-
-	HANDLE heap = HeapCreate(0, 0, 0);
-
-	nodeFreeList = new CObjectFreeList<stNode>(heap, false, false);
+	nodeFreeList = new CObjectFreeList<stNode>(false, false);
 
 	stNode** nodeArr = new stNode*[MAX_ALLOC_NUM];
 
@@ -186,7 +186,6 @@ void logicTest() {
 int main() {
 
 	setlocale(LC_ALL, "");
-		
 
 #ifdef LOGIC_TEST
 	logicTest();
