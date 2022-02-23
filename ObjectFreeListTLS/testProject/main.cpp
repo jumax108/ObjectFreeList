@@ -4,13 +4,23 @@
 #include <stdio.h>
 #include <new>
 #include <locale>
-#include <DbgHelp.h>
 #include <thread>
 
-#include "dump.h"
-#include "log.h"
-#include "SimpleProfiler.h"
-#include "ObjectFreeListTLS.h"
+#include "dump/headers/dump.h"
+#pragma comment(lib, "lib/dump/dump")
+
+#include "log/headers/log.h"
+#pragma comment(lib, "lib/log/log")
+
+#include "profiler/headers/profiler.h"
+#pragma comment(lib, "lib/profiler/profiler")
+
+#include "objectFreeList/headers/ObjectFreeList.h"
+#pragma comment(lib, "lib/objectFreeList/ObjectFreeList")
+
+#include "../headers/ObjectFreeListTLS.h"
+#pragma comment(lib, "../release/ObjectFreeListTLS")
+
 
 //#define LOGIC_TEST
 #define SPEED_TEST
@@ -19,11 +29,11 @@ CDump dump;
 CLog logger;
 
 
-constexpr int ALLOC_NUM_EACH_THREAD = 500;
-constexpr int THREAD_NUM = 4;
+constexpr int ALLOC_NUM_EACH_THREAD = 6;
+constexpr int THREAD_NUM = 3;
 constexpr int MAX_ALLOC_NUM = ALLOC_NUM_EACH_THREAD * THREAD_NUM;
 
-SimpleProfiler sp;
+CProfiler sp;
 
 #ifdef LOGIC_TEST
 
@@ -74,10 +84,11 @@ unsigned __stdcall logicTestThreadFunc(void* arg){
 
 		// 1. 노드를 ALLOC_NUM_EACH_THREAD 만큼 할당받는다.
 		for(int nodeCnt = 0; nodeCnt < ALLOC_NUM_EACH_THREAD; ++nodeCnt){
-			sp.profileBegin("alloc");
+			sp.begin("alloc");
 			nodeArr[nodeCnt] = nodeFreeList->allocObject();
-			sp.profileEnd("alloc");
+			sp.end("alloc");
 		}
+		Sleep(0);
 
 		// 2. 노드의 모든 데이터가 초기값과 일치하는지 확인한다.
 		for(int nodeCnt = 0; nodeCnt < ALLOC_NUM_EACH_THREAD; ++nodeCnt){
@@ -149,9 +160,9 @@ unsigned __stdcall logicTestThreadFunc(void* arg){
 		for(int nodeCnt = 0; nodeCnt < ALLOC_NUM_EACH_THREAD; ++nodeCnt){
 
 			stNode* node = nodeArr[nodeCnt];
-			sp.profileBegin("free");
+			sp.begin("free");
 			nodeFreeList->freeObject(node);
-			sp.profileEnd("free");
+			sp.end("free");
 
 		}
 		
@@ -159,9 +170,9 @@ unsigned __stdcall logicTestThreadFunc(void* arg){
 		unsigned int usedCnt = nodeFreeList->getUsedCount();
 		unsigned int capacity = nodeFreeList->getCapacity();
 		if(capacity > MAX_ALLOC_NUM){
-			nodeFreeListForDebug = nodeFreeList;
-			nodeFreeList = nullptr;
-			CDump::crash();
+			//nodeFreeListForDebug = nodeFreeList;
+			//nodeFreeList = nullptr;
+			//CDump::crash();
 		}
 
 		InterlockedIncrement(&tps);
@@ -176,7 +187,7 @@ void logicTest() {
 
 	HANDLE heap = HeapCreate(0, 0, 0);
 
-	nodeFreeList = new CObjectFreeListTLS<stNode>(heap, false, false);
+	nodeFreeList = new CObjectFreeListTLS<stNode>(false, false);
 
 	HANDLE thread[THREAD_NUM];
 	for(int threadCnt = 0; threadCnt < THREAD_NUM; ++threadCnt){
@@ -202,7 +213,7 @@ void logicTest() {
 
 struct stNode{
 
-	char data[1000];
+	char data[1000]={0,};
 
 };
 
@@ -215,7 +226,7 @@ int loopCntMax=0;
 unsigned __stdcall freeListSpeedTest(void* arg){
 
 	stNode** arr = new stNode*[ALLOC_NUM_EACH_THREAD];
-	/*
+	
 	for(int loopCnt = 0 ; loopCnt < loopNum; ++loopCnt){
 	
 		for(int cnt = 0; cnt < ALLOC_NUM_EACH_THREAD; ++cnt){
@@ -227,24 +238,25 @@ unsigned __stdcall freeListSpeedTest(void* arg){
 			nodeFreeList->freeObject(arr[cnt]);
 			
 		}
-	}*/
+	}
+
 	for(int loopCnt = 0 ; loopCnt < loopNum; ++loopCnt){
 	
-		sp.profileBegin("alloc");
+		sp.begin("alloc");
 		for(int cnt = 0; cnt < ALLOC_NUM_EACH_THREAD; ++cnt){
 
 			arr[cnt] = nodeFreeList->allocObject();
 
 		}
-		sp.profileEnd("alloc");
+		sp.end("alloc");
 		
-		sp.profileBegin("free");
+		sp.begin("free");
 		for(int cnt = 0; cnt < ALLOC_NUM_EACH_THREAD; ++cnt){
 		
 			nodeFreeList->freeObject(arr[cnt]);
 			
 		}
-		sp.profileEnd("free");
+		sp.end("free");
 
 	}
 	
@@ -257,21 +269,38 @@ unsigned __stdcall newDeleteSpeedTest(void* arg){
 
 	for(int loopCnt = 0 ; loopCnt < loopNum; ++loopCnt){
 	
-		sp.profileBegin("new");
 		for(int cnt = 0; cnt < ALLOC_NUM_EACH_THREAD; ++cnt){
 
 			arr[cnt] = new stNode;
 
 		}
-		sp.profileEnd("new");
 			
-		sp.profileBegin("delete");
 		for(int cnt = 0; cnt < ALLOC_NUM_EACH_THREAD; ++cnt){
 
 			delete arr[cnt];
 
 		}
-		sp.profileEnd("delete");
+
+	}
+
+
+	for(int loopCnt = 0 ; loopCnt < loopNum; ++loopCnt){
+	
+		sp.begin("new");
+		for(int cnt = 0; cnt < ALLOC_NUM_EACH_THREAD; ++cnt){
+
+			arr[cnt] = new stNode;
+
+		}
+		sp.end("new");
+			
+		sp.begin("delete");
+		for(int cnt = 0; cnt < ALLOC_NUM_EACH_THREAD; ++cnt){
+
+			delete arr[cnt];
+
+		}
+		sp.end("delete");
 
 	}
 
@@ -289,12 +318,10 @@ int main() {
 #ifdef SPEED_TEST
 
 	HANDLE heap = HeapCreate(0,0,0);
-	nodeFreeList = new CObjectFreeListTLS<stNode>(heap, false, false);
+	nodeFreeList = new CObjectFreeListTLS<stNode>(false, false);
 	
 	HANDLE freeListThread[THREAD_NUM];
 	HANDLE newDeleteThread[THREAD_NUM];
-
-
 
 	Sleep(1000);
 	
@@ -313,8 +340,6 @@ int main() {
 	WaitForMultipleObjects(THREAD_NUM, newDeleteThread, true, INFINITE);
 	printf("New Delete Done\n");
 	
-	
-
 	sp.printToFile();
 
 #endif
