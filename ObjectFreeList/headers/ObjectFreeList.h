@@ -1,6 +1,6 @@
 #pragma once
 
-#include "option.h"
+#include "common.h"
 
 #include "dump/headers/dump.h"
 #pragma comment(lib, "lib/dump/dump")

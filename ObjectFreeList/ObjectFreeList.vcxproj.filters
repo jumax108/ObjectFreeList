@@ -15,16 +15,13 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="headers\option.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="headers\ObjectFreeList.h">
+    <ClInclude Include="headers\common.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="ObjectFreeList.cpp">
-      <Filter>소스 파일</Filter>
+    <ClCompile Include="headers\ObjectFreeList.h">
+      <Filter>헤더 파일</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
