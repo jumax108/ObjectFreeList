@@ -233,7 +233,9 @@ T* CObjectFreeList<T>::_allocObject(
 
 		}
 
-	} while(InterlockedCompareExchange64((LONG64*)&_freePtr, (LONG64)allocNode->_nextPtr, (LONG64)freePtr) != (LONG64)freePtr);
+		nextPtr = allocNode->_nextPtr;
+
+	} while(InterlockedCompareExchange64((LONG64*)&_freePtr, (LONG64)nextPtr, (LONG64)freePtr) != (LONG64)freePtr);
 	
 	#if defined(OBJECT_FREE_LIST_SAFE)
 		// 노드를 사용중으로 체크함
@@ -304,7 +306,7 @@ int CObjectFreeList<T>::_freeObject(T* data
 		nodeChangeCnt = _nodeChangeCnt;
 			
 		// 사용했던 노드의 next를 현재 top으로 변경
-		usedNode->_nextPtr = toNode(freePtr);
+		usedNode->_nextPtr = freePtr;
 
 		nextPtr = toPtr(nodeChangeCnt, usedNode);
 

@@ -87,7 +87,7 @@
     <LinkIncremental>false</LinkIncremental>
     <OutDir>release\</OutDir>
     <IntDir>release\objFile\</IntDir>
-    <IncludePath>C:\Users\user\Desktop\github\ObjectFreeList\ObjectFreeListTLS\lib;$(IncludePath)</IncludePath>
+    <IncludePath>lib;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>

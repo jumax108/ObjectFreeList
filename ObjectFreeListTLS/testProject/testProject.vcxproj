@@ -81,7 +81,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>C:\Users\user\Desktop\github\ObjectFreeList\ObjectFreeListTLS\testProject\lib;$(IncludePath)</IncludePath>
+    <IncludePath>lib;$(IncludePath)</IncludePath>
     <OutDir>release\</OutDir>
     <IntDir>release\objFile</IntDir>
   </PropertyGroup>

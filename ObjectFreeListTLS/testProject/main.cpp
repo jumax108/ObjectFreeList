@@ -6,31 +6,22 @@
 #include <locale>
 #include <thread>
 
-#include "dump/headers/dump.h"
-#pragma comment(lib, "lib/dump/dump")
-
-#include "log/headers/log.h"
-#pragma comment(lib, "lib/log/log")
-
 #include "profiler/headers/profiler.h"
 #pragma comment(lib, "lib/profiler/profiler")
-
-#include "objectFreeList/headers/ObjectFreeList.h"
-#pragma comment(lib, "lib/objectFreeList/ObjectFreeList")
 
 #include "../headers/ObjectFreeListTLS.h"
 #pragma comment(lib, "../release/ObjectFreeListTLS")
 
 
-//#define LOGIC_TEST
-#define SPEED_TEST
+#define LOGIC_TEST
+//#define SPEED_TEST
 
 CDump dump;
 CLog logger;
 
 
 constexpr int ALLOC_NUM_EACH_THREAD = 6;
-constexpr int THREAD_NUM = 3;
+constexpr int THREAD_NUM = 2;
 constexpr int MAX_ALLOC_NUM = ALLOC_NUM_EACH_THREAD * THREAD_NUM;
 
 CProfiler sp;

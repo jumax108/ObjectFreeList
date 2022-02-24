@@ -132,7 +132,7 @@ unsigned __stdcall logicTestThreadFunc(void* arg){
 		unsigned int usedCnt = nodeFreeList->getUsedCount();
 		unsigned int capacity = nodeFreeList->getCapacity();
 		if(capacity > MAX_ALLOC_NUM){
-			CDump::crash();
+		//	CDump::crash();
 		}
 
 		InterlockedIncrement(&tps);
