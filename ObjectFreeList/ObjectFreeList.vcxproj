@@ -88,8 +88,8 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
     <OutDir>release\</OutDir>
-    <IntDir>objFile\</IntDir>
-    <IncludePath>C:\Users\user\Desktop\github\ObjectFreeList\ObjectFreeList\lib;$(IncludePath)</IncludePath>
+    <IntDir>release\objFile\</IntDir>
+    <IncludePath>lib;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
