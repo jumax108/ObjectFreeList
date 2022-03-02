@@ -50,7 +50,7 @@ unsigned __stdcall logicTestThreadFunc(void* arg){
 	* 
 	*/
 
-	srand((unsigned int)arg);
+	srand((unsigned int)(LONG64)arg);
 
 	stNode** nodeArr = new stNode*[ALLOC_NUM_EACH_THREAD];
 

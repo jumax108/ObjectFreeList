@@ -26,6 +26,14 @@ struct stAllocNode {
 			_used = false;
 			_underFlowCheck = (void*)0xF9F9F9F9F9F9F9F9;
 			_overFlowCheck = (void*)0xF9F9F9F9F9F9F9F9;
+
+			_allocSourceFileName = nullptr;
+			_freeSourceFileName = nullptr;
+			
+			_allocLine = 0;
+			_freeLine = 0;
+
+			_used = false;
 		#endif
 	}
 
@@ -114,7 +122,7 @@ private:
 		
 	// 리스트 변경 횟수
 	// ABA 문제를 회피하기 위해 사용합니다.
-	unsigned __int64 _nodeChangeCnt = 0;
+	unsigned __int64 _nodeChangeCnt;
 
 	// 할당 시, 생성자 실행 여부를 나타냅니다.
 	bool _runConstructor;
@@ -126,17 +134,20 @@ private:
 
 template <typename T>
 CObjectFreeList<T>::CObjectFreeList(bool runConstructor, bool runDestructor, int size) {
+	
+	_heap = HeapCreate(0, 0, 0);
 
-	_totalAllocList = nullptr;
 	_freePtr = nullptr;
-
+	_totalAllocList = nullptr;
+	
 	_capacity = size;
 	_usedCnt = 0;
 
-	_heap = HeapCreate(0, 0, 0);
 	_runConstructor = runConstructor;
 	_runDestructor = runDestructor;
 	
+	_nodeChangeCnt = 0;
+
 	// 실제 노드와 노드의 data와의 거리 계산
 	stAllocNode<T> tempNode;
 	_dataPtrToNodePtr = (unsigned __int64)&tempNode - (unsigned __int64)&tempNode._data;
@@ -190,7 +201,6 @@ T* CObjectFreeList<T>::_allocObject(
 	
 	InterlockedIncrement(&_usedCnt);
 	
-	stAllocNode<T>* nextNode;
 	stAllocNode<T>* allocNode;
 
 	void* freePtr;
@@ -289,8 +299,6 @@ int CObjectFreeList<T>::_freeObject(T* data
 	if(_runDestructor == true){
 		data->~T();
 	}
-
-	stAllocNode<T>* freeNode;
 
 	void* freePtr;
 	void* nextPtr;
