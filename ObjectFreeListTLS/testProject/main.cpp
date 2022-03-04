@@ -306,6 +306,24 @@ int main() {
 	SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
 	setlocale(LC_ALL, "");
 		
+	class CTest{
+	public:
+		CTest(){
+			printf("Constructor\n");
+		}
+		~CTest(){
+			printf("Destructor\n");
+		}
+	};
+
+	CObjectFreeListTLS<CTest> freeList(true, true);
+	
+	CTest* test = freeList.allocObject();
+	freeList.freeObject(test);
+	CTest* test2 = freeList.allocObject();
+	freeList.freeObject(test2);
+
+	return 0;
 #ifdef SPEED_TEST
 
 	HANDLE heap = HeapCreate(0,0,0);

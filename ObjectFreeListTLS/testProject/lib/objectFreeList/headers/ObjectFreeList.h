@@ -19,14 +19,30 @@
 template<typename T>
 struct stAllocNode {
 	stAllocNode() {
+		init();
+	}
+	~stAllocNode(){
+	}
 
+	void init(){
+		
 		_nextPtr = nullptr;
 
 		#if defined(OBJECT_FREE_LIST_SAFE)
 			_used = false;
 			_underFlowCheck = (void*)0xF9F9F9F9F9F9F9F9;
 			_overFlowCheck = (void*)0xF9F9F9F9F9F9F9F9;
+
+			_allocSourceFileName = nullptr;
+			_freeSourceFileName = nullptr;
+			
+			_allocLine = 0;
+			_freeLine = 0;
+
+			_used = false;
 		#endif
+
+		_callDestructor = false;
 	}
 
 	#if defined(OBJECT_FREE_LIST_SAFE)
@@ -57,6 +73,11 @@ struct stAllocNode {
 		// 노드가 사용중인지 확인
 		bool _used;
 	#endif
+
+	// 할당 이후 소멸자가 호출되었는지 여부
+	// 할당 이후 사용자가 반환하여 소멸자가 호출되었다면
+	// 클래스가 소멸할 때, 소멸자가 호출되면 안된다.
+	bool _callDestructor;
 };
 
 template<typename T>
@@ -114,7 +135,7 @@ private:
 		
 	// 리스트 변경 횟수
 	// ABA 문제를 회피하기 위해 사용합니다.
-	unsigned __int64 _nodeChangeCnt = 0;
+	unsigned __int64 _nodeChangeCnt;
 
 	// 할당 시, 생성자 실행 여부를 나타냅니다.
 	bool _runConstructor;
@@ -126,20 +147,24 @@ private:
 
 template <typename T>
 CObjectFreeList<T>::CObjectFreeList(bool runConstructor, bool runDestructor, int size) {
+	
+	_heap = HeapCreate(0, 0, 0);
 
-	_totalAllocList = nullptr;
 	_freePtr = nullptr;
-
+	_totalAllocList = nullptr;
+	
 	_capacity = size;
 	_usedCnt = 0;
 
-	_heap = HeapCreate(0, 0, 0);
 	_runConstructor = runConstructor;
 	_runDestructor = runDestructor;
 	
+	_nodeChangeCnt = 0;
+
 	// 실제 노드와 노드의 data와의 거리 계산
-	stAllocNode<T> tempNode;
-	_dataPtrToNodePtr = (unsigned __int64)&tempNode - (unsigned __int64)&tempNode._data;
+	stAllocNode<T>* tempNode = (stAllocNode<T>*)HeapAlloc(_heap, 0, sizeof(stAllocNode<T>));
+	_dataPtrToNodePtr = (unsigned __int64)tempNode - (unsigned __int64)&tempNode->_data;
+	HeapFree(_heap, 0, tempNode);
 
 	if (size == 0) {
 		return;
@@ -149,7 +174,14 @@ CObjectFreeList<T>::CObjectFreeList(bool runConstructor, bool runDestructor, int
 
 		// 미리 만들어놓을 개수만큼 노드를 만들어 놓음
 		stAllocNode<T>* newNode = (stAllocNode<T>*)HeapAlloc(_heap, 0, sizeof(stAllocNode<T>));
-		new (newNode) stAllocNode<T>;
+
+		// T type에 대한 생성자 호출 여부를 결정
+		if(runConstructor == false) {
+			new (newNode) stAllocNode<T>;
+		} else {
+			newNode->init();
+		}
+
 		newNode->_nextPtr = _freePtr;
 		_freePtr = newNode;
 
@@ -175,6 +207,9 @@ CObjectFreeList<T>::~CObjectFreeList() {
 
 	while(_totalAllocList != nullptr){
 		stAllocNode<T>* freeNode = _totalAllocList->_ptr;
+		if(freeNode->_callDestructor == false){
+			freeNode->~stAllocNode();
+		}
 		HeapFree(_heap, 0, freeNode);
 		_totalAllocList = _totalAllocList->_next;
 	}
@@ -190,7 +225,6 @@ T* CObjectFreeList<T>::_allocObject(
 	
 	InterlockedIncrement(&_usedCnt);
 	
-	stAllocNode<T>* nextNode;
 	stAllocNode<T>* allocNode;
 
 	void* freePtr;
@@ -211,7 +245,11 @@ T* CObjectFreeList<T>::_allocObject(
 
 			// 추가 할당
 			allocNode = (stAllocNode<T>*)HeapAlloc(_heap, 0, sizeof(stAllocNode<T>));
-			new (allocNode) stAllocNode<T>;
+			if(_runConstructor == false) {
+				new (allocNode) stAllocNode<T>;
+			} else {
+				allocNode->init();
+			}
 		
 			// 전체 alloc list에 추가
 			// 소멸자에서 일괄적으로 메모리 해제하기 위함
@@ -237,6 +275,9 @@ T* CObjectFreeList<T>::_allocObject(
 
 	} while(InterlockedCompareExchange64((LONG64*)&_freePtr, (LONG64)nextPtr, (LONG64)freePtr) != (LONG64)freePtr);
 	
+	// 소멸자 호출 여부 초기화
+	allocNode->_callDestructor = false;
+
 	#if defined(OBJECT_FREE_LIST_SAFE)
 		// 노드를 사용중으로 체크함
 		allocNode->_used = true;
@@ -288,9 +329,8 @@ int CObjectFreeList<T>::_freeObject(T* data
 	// 소멸자 실행
 	if(_runDestructor == true){
 		data->~T();
+		usedNode->_callDestructor = true;
 	}
-
-	stAllocNode<T>* freeNode;
 
 	void* freePtr;
 	void* nextPtr;

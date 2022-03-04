@@ -25,6 +25,7 @@ class CObjectFreeListTLS{
 public:
 
 	CObjectFreeListTLS(bool runConstructor, bool runDestructor);
+	~CObjectFreeListTLS();
 
 	T*	 _allocObject(
 		#if defined(OBJECT_FREE_LIST_TLS_SAFE)
@@ -63,7 +64,7 @@ CObjectFreeListTLS<T>::CObjectFreeListTLS(bool runConstructor, bool runDestructo
 	
 	///////////////////////////////////////////////////////////////////////
 	// 중앙 처리용 freeList 생성
-	_centerFreeList = new CObjectFreeList<stAllocChunk<T>>(false, true);
+	_centerFreeList = new CObjectFreeList<stAllocChunk<T>>(runConstructor, runDestructor);
 	///////////////////////////////////////////////////////////////////////
 	
 	///////////////////////////////////////////////////////////////////////
@@ -80,6 +81,12 @@ CObjectFreeListTLS<T>::CObjectFreeListTLS(bool runConstructor, bool runDestructo
 }
 
 template <typename T>
+CObjectFreeListTLS<T>::~CObjectFreeListTLS(){
+	TlsFree(_allocChunkTlsIdx);
+	delete _centerFreeList;
+}
+
+template <typename T>
 typename T* CObjectFreeListTLS<T>::_allocObject(
 	#if defined(OBJECT_FREE_LIST_TLS_SAFE)
 		const wchar_t* fileName,
@@ -92,6 +99,7 @@ typename T* CObjectFreeListTLS<T>::_allocObject(
 	stAllocChunk<T>* chunk = (stAllocChunk<T>*)TlsGetValue(_allocChunkTlsIdx);
 	if(chunk == nullptr){
 		chunk = _centerFreeList->allocObject();
+		chunk->init();
 		TlsSetValue(_allocChunkTlsIdx, chunk);
 	}
 	///////////////////////////////////////////////////////////////////////
@@ -109,8 +117,9 @@ typename T* CObjectFreeListTLS<T>::_allocObject(
 	///////////////////////////////////////////////////////////////////////
 	// 노드에서 T type 포인터 획득
 	T* allocData = &allocNode->_data;
+
 	if(_runConstructor == true){
-		new (allocData) T();
+	//	new (allocData) T();
 	}
 	///////////////////////////////////////////////////////////////////////
 	
@@ -122,7 +131,9 @@ typename T* CObjectFreeListTLS<T>::_allocObject(
 	///////////////////////////////////////////////////////////////////////
 	// 청크를 모두 사용했다면 새로 할당받기
 	if(chunk->_allocNode == chunk->_nodeEnd){
-		TlsSetValue(_allocChunkTlsIdx, _centerFreeList->allocObject());
+		chunk = _centerFreeList->allocObject();
+		chunk->init();
+		TlsSetValue(_allocChunkTlsIdx, chunk);
 	}
 	///////////////////////////////////////////////////////////////////////
 
@@ -173,7 +184,7 @@ void CObjectFreeListTLS<T>::_freeObject(T* object
 	///////////////////////////////////////////////////////////////////////
 	// 소멸자 호출
 	if(_runDestructor == true){
-		object->~T();
+	//	object->~T();
 	}
 	///////////////////////////////////////////////////////////////////////
 	
@@ -186,6 +197,8 @@ void CObjectFreeListTLS<T>::_freeObject(T* object
 	// 청크의 모든 요소가 사용 완료(할당 후 반환)되었다면 청크를 반환
 	chunk->_leftFreeCnt -= 1;
 	if(chunk->_leftFreeCnt == 0){
+		chunk->_leftFreeCnt = chunk->_nodeNum;
+		chunk->_allocNode = chunk->_nodes;
 		_centerFreeList->freeObject(chunk);
 	}
 	///////////////////////////////////////////////////////////////////////
@@ -230,12 +243,11 @@ struct stAllocTlsNode{
 	// 노드가 소속되어있는 청크
 	stAllocChunk<T>* _afflicatedChunk;
 
-	stAllocTlsNode(stAllocChunk<T>* afflicatedChunk = nullptr);
+	void init(stAllocChunk<T>* afflicatedChunk);
 };
 
 template <typename T>
-stAllocTlsNode<T>::stAllocTlsNode(stAllocChunk<T>* afficatedChunk)
-{
+void stAllocTlsNode<T>::init(stAllocChunk<T>* afflicatedChunk){
 	#if defined(OBJECT_FREE_LIST_TLS_SAFE)
 		_underflowCheck = objectFreeListTLS::UNDERFLOW_CHECK_VALUE;
 		_overflowCheck  = objectFreeListTLS::OVERFLOW_CHECK_VALUE;
@@ -249,7 +261,7 @@ stAllocTlsNode<T>::stAllocTlsNode(stAllocChunk<T>* afficatedChunk)
 		_allocated = false;
 	#endif
 
-	_afflicatedChunk = afficatedChunk;
+	_afflicatedChunk = afflicatedChunk;
 }
 
 
@@ -266,14 +278,13 @@ public:
 
 	int _nodeNum;
 
-	stAllocChunk();
-	~stAllocChunk();
+	void init();
 
 };
 
-template <typename T>
-stAllocChunk<T>::stAllocChunk(){
-		
+template<typename T>
+void stAllocChunk<T>::init(){
+	
 	_nodeNum = objectFreeListTLS::_chunkSize;
 
 	_allocNode = _nodes;
@@ -281,13 +292,8 @@ stAllocChunk<T>::stAllocChunk(){
 
 	_leftFreeCnt = _nodeNum;
 
-	for(int nodeCnt = 0; nodeCnt < _nodeNum; ++nodeCnt){
-		new (&_nodes[nodeCnt]) stAllocTlsNode<T>(this);
+	stAllocTlsNode<T>* iter = _nodes;
+	for(; iter < _nodeEnd; ++iter){
+		iter->init(this);
 	}
-}
-
-template <typename T>
-stAllocChunk<T>::~stAllocChunk(){
-	_allocNode = _nodes;
-	_leftFreeCnt = _nodeNum;
 }
