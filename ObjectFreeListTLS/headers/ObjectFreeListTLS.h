@@ -292,8 +292,7 @@ void stAllocChunk<T>::init(){
 
 	_leftFreeCnt = _nodeNum;
 
-	stAllocTlsNode<T>* iter = _nodes;
-	for(; iter < _nodeEnd; ++iter){
-		iter->init(this);
+	for(int nodeCnt = 0; nodeCnt < _nodeNum; ++nodeCnt){
+		_nodes[nodeCnt].init(this);
 	}
 }

@@ -308,6 +308,9 @@ int main() {
 		
 	class CTest{
 	public:
+
+		char a[30];
+
 		CTest(){
 			printf("Constructor\n");
 		}
