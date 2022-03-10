@@ -9,7 +9,6 @@
 #pragma comment(lib, "lib/profiler/profiler")
 
 #include "../headers/ObjectFreeList.h"
-#pragma comment(lib, "../release/ObjectFreeList")
 
 #define LOGIC_TEST
 

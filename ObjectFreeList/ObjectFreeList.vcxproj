@@ -19,9 +19,9 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="headers\ObjectFreeList.h">
+    <ClInclude Include="headers\ObjectFreeList.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
-    </ClCompile>
+    </ClInclude>
     <ClInclude Include="headers\common.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">

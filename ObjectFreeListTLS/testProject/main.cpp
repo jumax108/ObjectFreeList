@@ -10,7 +10,6 @@
 #pragma comment(lib, "lib/profiler/profiler")
 
 #include "../headers/ObjectFreeListTLS.h"
-#pragma comment(lib, "../release/ObjectFreeListTLS")
 
 
 #define LOGIC_TEST

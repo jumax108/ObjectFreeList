@@ -20,7 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="headers\common.h" />
-    <ClCompile Include="headers\ObjectFreeListTLS.h" />
+    <ClInclude Include="headers\ObjectFreeListTLS.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

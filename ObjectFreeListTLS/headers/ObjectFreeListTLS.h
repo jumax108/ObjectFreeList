@@ -1,7 +1,6 @@
 #pragma once
 
 #include "objectFreeList\headers\ObjectFreeList.h"
-#pragma comment(lib, "lib/objectFreeList/ObjectFreeList")
 
 #include "common.h"
 
@@ -195,8 +194,8 @@ void CObjectFreeListTLS<T>::_freeObject(T* object
 
 	///////////////////////////////////////////////////////////////////////
 	// 청크의 모든 요소가 사용 완료(할당 후 반환)되었다면 청크를 반환
-	chunk->_leftFreeCnt -= 1;
-	if(chunk->_leftFreeCnt == 0){
+	int leftFreeCnt = InterlockedDecrement((LONG*)&chunk->_leftFreeCnt);
+	if(leftFreeCnt == 0){
 		chunk->_leftFreeCnt = chunk->_nodeNum;
 		chunk->_allocNode = chunk->_nodes;
 		_centerFreeList->freeObject(chunk);
