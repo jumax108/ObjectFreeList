@@ -186,6 +186,29 @@ int main() {
 
 	setlocale(LC_ALL, "");
 
+	CObjectFreeList<stNode> freeList(false, false, 0);
+
+	
+	stNode* a = freeList.allocObject();
+	stNode* b = freeList.allocObject();
+	stNode* c = freeList.allocObject();
+
+	a->data = 0x1111111111111111;
+	a->nodeStart = (void*)0xAAAAAAAAAAAAAAAA;
+	a->nodeEnd = (void*)0xFFFFFFFFFFFFFFFF;
+	
+	b->data = 0x2222222222222222;
+	b->nodeStart = (void*)0xbbbbbbbbbbbbbbbb;
+	b->nodeEnd = (void*)0xeeeeeeeeeeeeeeee;
+
+	c->data = 0x3333333333333333;
+	c->nodeStart = (void*)0xcccccccccccccccc;
+	c->nodeEnd = (void*)0xdddddddddddddddd;
+
+	freeList.freeObject(c);
+
+	return 0;
+
 #ifdef LOGIC_TEST
 	logicTest();
 #endif 

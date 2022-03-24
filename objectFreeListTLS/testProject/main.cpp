@@ -75,7 +75,7 @@ unsigned __stdcall logicTestThreadFunc(void* arg){
 		// 1. 노드를 ALLOC_NUM_EACH_THREAD 만큼 할당받는다.
 		for(int nodeCnt = 0; nodeCnt < ALLOC_NUM_EACH_THREAD; ++nodeCnt){
 			sp.begin("alloc");
-			nodeArr[nodeCnt] = nodeFreeList->allocObject();
+			nodeArr[nodeCnt] = nodeFreeList->allocObjectTLS();
 			sp.end("alloc");
 		}
 		Sleep(0);
@@ -151,7 +151,7 @@ unsigned __stdcall logicTestThreadFunc(void* arg){
 
 			stNode* node = nodeArr[nodeCnt];
 			sp.begin("free");
-			nodeFreeList->freeObject(node);
+			nodeFreeList->freeObjectTLS(node);
 			sp.end("free");
 
 		}
@@ -308,22 +308,15 @@ int main() {
 	class CTest{
 	public:
 
-		char a[30];
-
-		CTest(){
-			printf("Constructor\n");
-		}
-		~CTest(){
-			printf("Destructor\n");
-		}
+		char a[30]={0,};
 	};
 
-	CObjectFreeListTLS<CTest> freeList(true, true);
+	CObjectFreeListTLS<CTest> freeList(false, false);
 	
-	CTest* test = freeList.allocObject();
-	freeList.freeObject(test);
-	CTest* test2 = freeList.allocObject();
-	freeList.freeObject(test2);
+	CTest* test = freeList.allocObjectTLS();
+	freeList.freeObjectTLS(test);
+	CTest* test2 = freeList.allocObjectTLS();
+	//freeList.freeObjectTLS(test2);
 
 	return 0;
 #ifdef SPEED_TEST

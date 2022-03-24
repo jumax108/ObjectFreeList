@@ -1,11 +1,18 @@
 #pragma once
 
+#include <typeinfo>
+
 #include "common.h"
 
 #include "dump/headers/dump.h"
 #pragma comment(lib, "lib/dump/dump")
 
-#if defined(OBJECT_FREE_LIST_SAFE)
+#if defined(OBJECT_FREE_LIST_DEBUG)
+	#include "log/headers/log.h"
+	#pragma comment(lib, "lib/log/log")
+#endif
+
+#if defined(OBJECT_FREE_LIST_DEBUG)
 	#define allocObject() _allocObject(__FILEW__, __LINE__)
 	#define freeObject(x) _freeObject(x, __FILEW__, __LINE__)
 #else
@@ -28,8 +35,8 @@ struct stAllocNode {
 		
 		_nextPtr = nullptr;
 
-		#if defined(OBJECT_FREE_LIST_SAFE)
-			_used = false;
+		#if defined(OBJECT_FREE_LIST_DEBUG)
+			_allocated = false;
 			_underFlowCheck = (void*)0xF9F9F9F9F9F9F9F9;
 			_overFlowCheck = (void*)0xF9F9F9F9F9F9F9F9;
 
@@ -39,13 +46,13 @@ struct stAllocNode {
 			_allocLine = 0;
 			_freeLine = 0;
 
-			_used = false;
+			_allocated = false;
 		#endif
 
 		_callDestructor = false;
 	}
 
-	#if defined(OBJECT_FREE_LIST_SAFE)
+	#if defined(OBJECT_FREE_LIST_DEBUG)
 		// f9로 초기화해서 언더플로우 체크합니다.
 		void* _underFlowCheck;
 	#endif
@@ -53,7 +60,7 @@ struct stAllocNode {
 	// alloc 함수에서 리턴할 실제 데이터
 	T _data;
 	
-	#if defined(OBJECT_FREE_LIST_SAFE)
+	#if defined(OBJECT_FREE_LIST_DEBUG)
 		// f9로 초기화해서 오버플로우 체크합니다.
 		void* _overFlowCheck;
 	#endif
@@ -61,7 +68,7 @@ struct stAllocNode {
 	// 할당할 다음 노드
 	void* _nextPtr;
 
-	#if defined(OBJECT_FREE_LIST_SAFE)
+	#if defined(OBJECT_FREE_LIST_DEBUG)
 		// 소스 파일 이름
 		const wchar_t* _allocSourceFileName;
 		const wchar_t* _freeSourceFileName;
@@ -71,7 +78,7 @@ struct stAllocNode {
 		int _freeLine;
 
 		// 노드가 사용중인지 확인
-		bool _used;
+		bool _allocated;
 	#endif
 
 	// 할당 이후 소멸자가 호출되었는지 여부
@@ -89,13 +96,13 @@ public:
 	~CObjectFreeList();
 
 
-	#if defined(OBJECT_FREE_LIST_SAFE)
+	#if defined(OBJECT_FREE_LIST_DEBUG)
 		T* _allocObject(const wchar_t*, int);
 	#else
 		T* _allocObject();
 	#endif
 	
-	#if defined(OBJECT_FREE_LIST_SAFE)
+	#if defined(OBJECT_FREE_LIST_DEBUG)
 		int _freeObject(T* data, const wchar_t*, int);
 	#else
 		int _freeObject(T* data);
@@ -143,6 +150,10 @@ private:
 	// 해제 시, 소멸자 실행 여부를 나타냅니다.
 	bool _runDestructor;
 
+	#if defined(OBJECT_FREE_LIST_DEBUG)
+		CLog log;
+	#endif
+
 };
 
 template <typename T>
@@ -160,6 +171,11 @@ CObjectFreeList<T>::CObjectFreeList(bool runConstructor, bool runDestructor, int
 	_runDestructor = runDestructor;
 	
 	_nodeChangeCnt = 0;
+
+	#if defined(OBJECT_FREE_LIST_DEBUG)
+		log.setDirectory(L"objectFreeList_Log");
+		log.setPrintGroup(LOG_GROUP::LOG_DEBUG);
+	#endif`
 
 	// 실제 노드와 노드의 data와의 거리 계산
 	stAllocNode<T>* tempNode = (stAllocNode<T>*)HeapAlloc(_heap, 0, sizeof(stAllocNode<T>));
@@ -204,21 +220,63 @@ CObjectFreeList<T>::CObjectFreeList(bool runConstructor, bool runDestructor, int
 
 template <typename T>
 CObjectFreeList<T>::~CObjectFreeList() {
+	
+	#if defined(OBJECT_FREE_LIST_DEBUG)
+		log(L"memoryLeak.txt", LOG_GROUP::LOG_DEBUG, L"────────────────────────────────");
+		wchar_t typeName[50];
+		size_t convertSize;
+		mbstowcs_s(&convertSize, typeName, typeid(T).name(), 50);
+		log(L"memoryLeak.txt", LOG_GROUP::LOG_DEBUG, L"type: %s", typeName);
+	#endif
 
 	while(_totalAllocList != nullptr){
-		stAllocNode<T>* freeNode = _totalAllocList->_ptr;
+		stSimpleListNode* allocListNode = _totalAllocList;
+		stAllocNode<T>* freeNode = allocListNode->_ptr;
+
+		#if defined(OBJECT_FREE_LIST_DEBUG)
+			if(freeNode->_allocated == true){
+				
+				log(L"memoryLeak.txt", LOG_GROUP::LOG_DEBUG, L"alloc file name: %s", freeNode->_allocSourceFileName);
+				log(L"memoryLeak.txt", LOG_GROUP::LOG_DEBUG, L"alloc line: %d", freeNode->_allocLine);
+				log(L"memoryLeak.txt", LOG_GROUP::LOG_DEBUG, L"data(%d bytes): ", sizeof(T));
+
+				wchar_t byteLine[25];
+				wchar_t* lineWritePoint = byteLine;
+				for(int byteCnt = 0; byteCnt < sizeof(T); byteCnt++){
+
+					swprintf_s(lineWritePoint, 4, L"%02X ", *( ((unsigned char*)(&freeNode->_data) + byteCnt)) );
+					lineWritePoint += 3;
+
+					if((byteCnt+1) % 8 == 0 || byteCnt+1 == sizeof(T)){
+						log(L"memoryLeak.txt", LOG_GROUP::LOG_DEBUG, L"%s", byteLine);
+						lineWritePoint = byteLine;
+					}
+				}
+
+				log(L"memoryLeak.txt", LOG_GROUP::LOG_DEBUG, L"");
+
+			}
+		#endif
+
 		if(freeNode->_callDestructor == false){
 			freeNode->~stAllocNode();
 		}
 		HeapFree(_heap, 0, freeNode);
-		_totalAllocList = _totalAllocList->_next;
+		_totalAllocList = allocListNode->_next;
+		HeapFree(_heap, 0, allocListNode);
 	}
+	
+	#if defined(OBJECT_FREE_LIST_DEBUG)
+		log(L"memoryLeak.txt", LOG_GROUP::LOG_DEBUG, L"────────────────────────────────");
+	#endif
+
+	HeapDestroy(_heap);
 
 }
 
 template<typename T>
 T* CObjectFreeList<T>::_allocObject(
-	#if defined(OBJECT_FREE_LIST_SAFE)
+	#if defined(OBJECT_FREE_LIST_DEBUG)
 		const wchar_t* fileName, int line
 	#endif
 ) {
@@ -278,9 +336,9 @@ T* CObjectFreeList<T>::_allocObject(
 	// 소멸자 호출 여부 초기화
 	allocNode->_callDestructor = false;
 
-	#if defined(OBJECT_FREE_LIST_SAFE)
+	#if defined(OBJECT_FREE_LIST_DEBUG)
 		// 노드를 사용중으로 체크함
-		allocNode->_used = true;
+		allocNode->_allocated = true;
 
 		// 할당 요청한 소스파일과 소스라인을 기록함
 		allocNode->_allocSourceFileName = fileName;
@@ -299,16 +357,16 @@ T* CObjectFreeList<T>::_allocObject(
 
 template <typename T>
 int CObjectFreeList<T>::_freeObject(T* data	
-	#if defined(OBJECT_FREE_LIST_SAFE)
+	#if defined(OBJECT_FREE_LIST_DEBUG)
 		, const wchar_t* fileName, int line
 	#endif
 ) {
 
 	stAllocNode<T>* usedNode = (stAllocNode<T>*)(((char*)data) + _dataPtrToNodePtr);
 	
-	#if defined(OBJECT_FREE_LIST_SAFE)
+	#if defined(OBJECT_FREE_LIST_DEBUG)
 		// 중복 free 체크
-		if(usedNode->_used == false){
+		if(usedNode->_allocated == false){
 			CDump::crash();
 		}
 
@@ -323,7 +381,7 @@ int CObjectFreeList<T>::_freeObject(T* data
 		}
 
 		// 노드의 사용중 플래그를 내림
-		usedNode->_used = false;
+		usedNode->_allocated = false;
 	#endif
 
 	// 소멸자 실행

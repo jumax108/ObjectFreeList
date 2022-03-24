@@ -9,7 +9,7 @@
 #include "log/headers/log.h"
 #pragma comment(lib, "lib/log/log")
 
-#include "option.h"
+#include "common.h"
 
 class CProfiler
 {
