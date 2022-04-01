@@ -217,6 +217,7 @@ typename T* CObjectFreeListTLS<T>::_allocObject(
 	if(chunk == nullptr){
 		chunk = _centerFreeList->allocObject();
 		chunk->init();
+		TlsSetValue(_allocChunkTlsIdx, chunk);
 		
 		#if defined(OBJECT_FREE_LIST_TLS_DEBUG)
 			stSimpleList* node = (stSimpleList*)HeapAlloc(_heap, HEAP_ZERO_MEMORY, sizeof(stSimpleList));

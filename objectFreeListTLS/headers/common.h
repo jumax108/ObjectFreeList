@@ -21,7 +21,7 @@ namespace objectFreeListTLS{
 	#if defined(OBJECT_FREE_LIST_TLS_DEBUG)
 
 		// alloc object에 접근하는 최대 스레드 수
-		constexpr int MAX_THREAD_NUM = 100;
+		constexpr int MAX_THREAD_NUM = 500;
 
 	#endif
 
