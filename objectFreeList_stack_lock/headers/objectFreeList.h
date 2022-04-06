@@ -278,6 +278,14 @@ T* CObjectFreeList<T>::_allocObject(
 			if(_freeNode == nullptr){
 			
 				allocNode = (stAllocNode<T>*)HeapAlloc(_heap, 0, sizeof(stAllocNode<T>));
+				
+				// T type에 대한 생성자 호출 여부를 결정
+				if(runConstructor == false) {
+					new (allocNode) stAllocNode<T>;
+				} else {
+					allocNode->init();
+				}
+
 				stSimpleListNode* totalAllocNode = (stSimpleListNode*)HeapAlloc(_heap, 0, sizeof(stSimpleListNode));
 
 				totalAllocNode->_ptr = allocNode;
