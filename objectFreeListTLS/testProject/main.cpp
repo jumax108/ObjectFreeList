@@ -6,24 +6,24 @@
 #include <locale>
 #include <thread>
 
-#include "profiler/headers/profiler.h"
-#pragma comment(lib, "lib/profiler/profiler")
+#include "profilerTLS/headers/profilerTLS.h"
+#pragma comment(lib, "lib/profilerTLS/profilerTLS")
 
 #include "../headers/ObjectFreeListTLS.h"
 
 
-#define LOGIC_TEST
-//#define SPEED_TEST
+//#define LOGIC_TEST
+#define SPEED_TEST
 
 CDump dump;
 CLog logger;
 
 
-constexpr int ALLOC_NUM_EACH_THREAD = 6;
-constexpr int THREAD_NUM = 2;
+constexpr int ALLOC_NUM_EACH_THREAD = 10000;
+constexpr int THREAD_NUM = 3;
 constexpr int MAX_ALLOC_NUM = ALLOC_NUM_EACH_THREAD * THREAD_NUM;
 
-CProfiler sp;
+CProfilerTLS sp;
 
 #ifdef LOGIC_TEST
 
@@ -203,7 +203,7 @@ void logicTest() {
 
 struct stNode{
 
-	char data[1000]={0,};
+	char data[1000];
 
 };
 
@@ -305,20 +305,6 @@ int main() {
 	SetPriorityClass(GetCurrentProcess(), REALTIME_PRIORITY_CLASS);
 	setlocale(LC_ALL, "");
 		
-	class CTest{
-	public:
-
-		char a[30]={0,};
-	};
-
-	CObjectFreeListTLS<CTest> freeList(false, false);
-	
-	CTest* test = freeList.allocObjectTLS();
-	freeList.freeObjectTLS(test);
-	CTest* test2 = freeList.allocObjectTLS();
-	//freeList.freeObjectTLS(test2);
-
-	return 0;
 #ifdef SPEED_TEST
 
 	HANDLE heap = HeapCreate(0,0,0);

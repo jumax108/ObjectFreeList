@@ -232,7 +232,7 @@ typename T* CObjectFreeListTLS<T>::_allocObject(
 	
 	///////////////////////////////////////////////////////////////////////
 	// 청크에서 노드 획득 & 초기화
-	stAllocTlsNode<T>* allocNode = chunk->_allocNode;
+	stAllocTlsNode<T>* allocNode = chunk->_allocNode++;
 	#if defined(OBJECT_FREE_LIST_TLS_DEBUG)
 		allocNode->_allocated = true;
 		allocNode->_allocSourceFileName = fileName;
@@ -245,15 +245,10 @@ typename T* CObjectFreeListTLS<T>::_allocObject(
 	T* allocData = &allocNode->_data;
 
 	if(_runConstructor == true){
-	//	new (allocData) T();
+		new (allocData) T();
 	}
 	///////////////////////////////////////////////////////////////////////
-	
-	///////////////////////////////////////////////////////////////////////
-	// 다음 노드 바라보기
-	chunk->_allocNode += 1;
-	///////////////////////////////////////////////////////////////////////
-	
+		
 	///////////////////////////////////////////////////////////////////////
 	// 청크를 모두 사용했다면 새로 할당받기
 	if(chunk->_allocNode == chunk->_nodeEnd){
@@ -320,7 +315,7 @@ void CObjectFreeListTLS<T>::_freeObject(T* object
 	///////////////////////////////////////////////////////////////////////
 	// 소멸자 호출
 	if(_runDestructor == true){
-	//	object->~T();
+		object->~T();
 	}
 	///////////////////////////////////////////////////////////////////////
 	
@@ -331,8 +326,7 @@ void CObjectFreeListTLS<T>::_freeObject(T* object
 
 	///////////////////////////////////////////////////////////////////////
 	// 청크의 모든 요소가 사용 완료(할당 후 반환)되었다면 청크를 반환
-	int leftFreeCnt = InterlockedDecrement((LONG*)&chunk->_leftFreeCnt);
-	if(leftFreeCnt == 0){
+	if(InterlockedDecrement16((SHORT*)&chunk->_leftFreeCnt) == 0){
 		chunk->_leftFreeCnt = chunk->_nodeNum;
 		chunk->_allocNode = chunk->_nodes;
 		_centerFreeList->freeObject(chunk);
@@ -406,12 +400,11 @@ struct stAllocChunk{
 		
 public:
 
-	int _leftFreeCnt;
+	unsigned short _leftFreeCnt;
 	stAllocTlsNode<T>* _allocNode;
 
-	stAllocTlsNode<T> _nodes[objectFreeListTLS::CHUNK_SIZE];	
+	alignas(64) stAllocTlsNode<T> _nodes[objectFreeListTLS::CHUNK_SIZE];	
 	stAllocTlsNode<T>* _nodeEnd;
-
 	int _nodeNum;
 
 	void init();

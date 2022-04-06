@@ -26,7 +26,7 @@ struct stNode{
 };
 
 #ifdef LOGIC_TEST
-constexpr int ALLOC_NUM_EACH_THREAD = 3000;
+constexpr int ALLOC_NUM_EACH_THREAD = 1000;
 constexpr int THREAD_NUM = 3;
 constexpr int MAX_ALLOC_NUM = ALLOC_NUM_EACH_THREAD * THREAD_NUM;
 CObjectFreeList<stNode>* nodeFreeList;

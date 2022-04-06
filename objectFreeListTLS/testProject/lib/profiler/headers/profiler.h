@@ -14,19 +14,7 @@
 class CProfiler
 {
 public:
-
-	struct Profile {
-		char name[100] = {0,};
-		LARGE_INTEGER start;
-		__int64 sum = 0;
-		__int64 max = 0;
-		__int64 min = 0x7FFFFFFFFFFFFFFF;
-		unsigned int callCnt = 0;
-	};
-
-	LARGE_INTEGER freq;
-
-	CLog logger;
+	struct stProfile;
 
 public:
 	
@@ -35,15 +23,50 @@ public:
 	void begin(const char name[100]);
 	void end(const char name[100]);
 
+	stProfile* begin();
+	stProfile* next();
+
 	void printToFile();
+
+	void reset();
 	
 private:
 
-	unsigned int tlsIndex = 0;
-	unsigned short allocIndex = 0;
+	stProfile* _profile;
+	unsigned int _allocIndex = 0;
 
-	Profile profile[profiler::MAX_THREAD_NUM][profiler::MAX_PROFILE_NUM]; 
+	HANDLE _heap;
 
-	Profile* getTlsProfileData();
-	int findIdx(const char* name, Profile* profile);
+	LARGE_INTEGER _freq;
+	CLog _logger;
+
+	int _returnIndex;
+
+	bool _reset;
+
+	int findIdx(const char* name);
+};
+
+struct CProfiler::stProfile {
+
+	stProfile() {
+
+		ZeroMemory(_name, sizeof(_name));
+		ZeroMemory(&_start, sizeof(LARGE_INTEGER));
+
+		_sum = 0;
+		_max = 0;
+		_min = 0x7FFFFFFFFFFFFFFF;
+		_callCnt = 0;
+
+	}
+
+	char _name[100];
+	LARGE_INTEGER _start;
+	__int64 _sum;
+	__int64 _max;
+	__int64 _min;
+	unsigned int _callCnt;
+
+	unsigned long _threadId;
 };
