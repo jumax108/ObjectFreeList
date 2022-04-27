@@ -11,6 +11,9 @@
 
 #include "../headers/ObjectFreeListTLS.h"
 
+#include "log/headers/log.h"
+#pragma comment(lib,"lib/log/log")
+
 
 //#define LOGIC_TEST
 #define SPEED_TEST
@@ -217,18 +220,23 @@ unsigned __stdcall freeListSpeedTest(void* arg){
 
 	stNode** arr = new stNode*[ALLOC_NUM_EACH_THREAD];
 	
-	for(int loopCnt = 0 ; loopCnt < loopNum; ++loopCnt){
-	
-		for(int cnt = 0; cnt < ALLOC_NUM_EACH_THREAD; ++cnt){
+
+	for (int loopCnt = 0; loopCnt < loopNum; ++loopCnt) {
+
+		for (int cnt = 0; cnt < ALLOC_NUM_EACH_THREAD; ++cnt) {
 
 			arr[cnt] = nodeFreeList->allocObject();
+
 		}
-		for(int cnt = 0; cnt < ALLOC_NUM_EACH_THREAD; ++cnt){
-		
+
+		for (int cnt = 0; cnt < ALLOC_NUM_EACH_THREAD; ++cnt) {
+
 			nodeFreeList->freeObject(arr[cnt]);
-			
+
 		}
+
 	}
+	
 
 	for(int loopCnt = 0 ; loopCnt < loopNum; ++loopCnt){
 	
@@ -257,21 +265,23 @@ unsigned __stdcall newDeleteSpeedTest(void* arg){
 
 	stNode** arr = new stNode*[ALLOC_NUM_EACH_THREAD];
 
-	for(int loopCnt = 0 ; loopCnt < loopNum; ++loopCnt){
-	
-		for(int cnt = 0; cnt < ALLOC_NUM_EACH_THREAD; ++cnt){
+	for (int loopCnt = 0; loopCnt < loopNum; ++loopCnt) {
+
+		for (int cnt = 0; cnt < ALLOC_NUM_EACH_THREAD; ++cnt) {
 
 			arr[cnt] = new stNode;
 
 		}
-			
-		for(int cnt = 0; cnt < ALLOC_NUM_EACH_THREAD; ++cnt){
+
+		for (int cnt = 0; cnt < ALLOC_NUM_EACH_THREAD; ++cnt) {
 
 			delete arr[cnt];
 
 		}
 
 	}
+
+	
 
 
 	for(int loopCnt = 0 ; loopCnt < loopNum; ++loopCnt){
@@ -312,9 +322,7 @@ int main() {
 	
 	HANDLE freeListThread[THREAD_NUM];
 	HANDLE newDeleteThread[THREAD_NUM];
-
-	Sleep(1000);
-	
+		
 	for(int threadCnt = 0; threadCnt < THREAD_NUM; ++ threadCnt){
 		freeListThread[threadCnt] = (HANDLE)_beginthreadex(nullptr, 0, freeListSpeedTest, nullptr, 0, nullptr);
 	}
@@ -322,14 +330,14 @@ int main() {
 	WaitForMultipleObjects(THREAD_NUM, freeListThread, true, INFINITE);
 	printf("Free List Done\n");
 	
-	
+	/*
 	for(int threadCnt = 0; threadCnt < THREAD_NUM; ++ threadCnt){
 		newDeleteThread[threadCnt] = (HANDLE)_beginthreadex(nullptr, 0, newDeleteSpeedTest, nullptr, 0, nullptr);
 	}
 
 	WaitForMultipleObjects(THREAD_NUM, newDeleteThread, true, INFINITE);
 	printf("New Delete Done\n");
-	
+	*/
 	sp.printToFile();
 
 #endif

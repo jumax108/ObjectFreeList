@@ -149,6 +149,8 @@
   <ItemGroup>
     <ClInclude Include="..\headers\common.h" />
     <ClInclude Include="..\headers\objectFreeListTLS.h" />
+    <ClInclude Include="lib\objectFreeList\headers\common.h" />
+    <ClInclude Include="lib\objectFreeList\headers\objectFreeList.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
