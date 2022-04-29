@@ -11,13 +11,8 @@
 #pragma comment(lib, "lib/log/log")
 #endif
 
-#if defined(OBJECT_FREE_LIST_TLS_DEBUG)
-#define allocObjectTLS() _allocObject(__FILEW__, __LINE__)
-#define freeObjectTLS(ptr) _freeObject(ptr, __FILEW__, __LINE__)
-#else
-#define allocObjectTLS() _allocObject()
-#define freeObjectTLS(ptr) _freeObject(ptr)
-#endif
+#define allocObject() _allocObject(__FILEW__, __LINE__)
+#define freeObject(ptr) _freeObject(ptr, __FILEW__, __LINE__)
 
 template <typename T>
 struct stAllocChunk;
@@ -33,16 +28,8 @@ public:
 	CObjectFreeListTLS(bool runConstructor, bool runDestructor);
 	~CObjectFreeListTLS();
 
-	T* _allocObject(
-#if defined(OBJECT_FREE_LIST_TLS_DEBUG)
-		const wchar_t*, int
-#endif
-	);
-	void _freeObject(T* object
-#if defined(OBJECT_FREE_LIST_TLS_DEBUG)
-		, const wchar_t*, int
-#endif
-	);
+	T* _allocObject(const wchar_t*, int);
+	void _freeObject(T* object, const wchar_t*, int);
 
 	unsigned int getCapacity();
 	unsigned int getUsedCount();
@@ -190,12 +177,7 @@ CObjectFreeListTLS<T>::~CObjectFreeListTLS() {
 }
 
 template <typename T>
-typename T* CObjectFreeListTLS<T>::_allocObject(
-#if defined(OBJECT_FREE_LIST_TLS_DEBUG)
-	const wchar_t* fileName,
-	int line
-#endif
-) {
+typename T* CObjectFreeListTLS<T>::_allocObject(const wchar_t* fileName,int line) {
 
 #if defined(OBJECT_FREE_LIST_TLS_DEBUG)
 	///////////////////////////////////////////////////////////////////////
@@ -271,12 +253,7 @@ typename T* CObjectFreeListTLS<T>::_allocObject(
 }
 
 template <typename T>
-void CObjectFreeListTLS<T>::_freeObject(T* object
-#if defined(OBJECT_FREE_LIST_TLS_DEBUG)
-	, const wchar_t* fileName,
-	int line
-#endif
-) {
+void CObjectFreeListTLS<T>::_freeObject(T* object, const wchar_t* fileName,int line) {
 
 	///////////////////////////////////////////////////////////////////////
 	// ÇÒ´çÇß´ø ³ëµå È¹µæ

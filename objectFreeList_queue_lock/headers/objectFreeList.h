@@ -12,13 +12,8 @@
 	#pragma comment(lib, "lib/log/log")
 #endif
 
-#if defined(OBJECT_FREE_LIST_DEBUG)
-	#define allocObject() _allocObject(__FILEW__, __LINE__)
-	#define freeObject(x) _freeObject(x, __FILEW__, __LINE__)
-#else
-	#define allocObject() _allocObject()
-	#define freeObject(x) _freeObject(x)
-#endif
+#define allocObject() _allocObject(__FILEW__, __LINE__)
+#define freeObject(x) _freeObject(x, __FILEW__, __LINE__)
 
 template<typename T>
 struct stAllocNode {
@@ -92,18 +87,8 @@ public:
 	CObjectFreeList(bool runConstructor, bool runDestructor, int _capacity = 0);
 	~CObjectFreeList();
 
-
-	#if defined(OBJECT_FREE_LIST_DEBUG)
-		T* _allocObject(const wchar_t*, int);
-	#else
-		T* _allocObject();
-	#endif
-	
-	#if defined(OBJECT_FREE_LIST_DEBUG)
-		int _freeObject(T* data, const wchar_t*, int);
-	#else
-		int _freeObject(T* data);
-	#endif
+	T* _allocObject(const wchar_t*, int);
+	int _freeObject(T* data, const wchar_t*, int);
 
 	inline unsigned int getCapacity() { return _capacity; }
 	inline unsigned int getUsedCount() { return _usedCnt; }
@@ -266,11 +251,7 @@ CObjectFreeList<T>::~CObjectFreeList() {
 }
 
 template<typename T>
-T* CObjectFreeList<T>::_allocObject(
-	#if defined(OBJECT_FREE_LIST_DEBUG)
-		const wchar_t* fileName, int line
-	#endif
-) {
+T* CObjectFreeList<T>::_allocObject(const wchar_t* fileName, int line) {
 	
 	T* data;
 
@@ -341,11 +322,7 @@ T* CObjectFreeList<T>::_allocObject(
 }
 
 template <typename T>
-int CObjectFreeList<T>::_freeObject(T* data	
-	#if defined(OBJECT_FREE_LIST_DEBUG)
-		, const wchar_t* fileName, int line
-	#endif
-) {
+int CObjectFreeList<T>::_freeObject(T* data	, const wchar_t* fileName, int line) {
 
 	AcquireSRWLockExclusive(&_lock); {
 
