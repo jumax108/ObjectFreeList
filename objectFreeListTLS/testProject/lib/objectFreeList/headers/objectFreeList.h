@@ -12,13 +12,8 @@
 	#pragma comment(lib, "lib/log/log")
 #endif
 
-#if defined(OBJECT_FREE_LIST_DEBUG)
-	#define allocObject() _allocObject(__FILEW__, __LINE__)
-	#define freeObject(x) _freeObject(x, __FILEW__, __LINE__)
-#else
-	#define allocObject() _allocObject()
-	#define freeObject(x) _freeObject(x)
-#endif
+#define allocObject() _allocObject(__FILEW__, __LINE__)
+#define freeObject(x) _freeObject(x, __FILEW__, __LINE__)
 
 #define toNode(ptr) ((stAllocNode<T>*)((unsigned __int64)ptr & 0x000007FFFFFFFFFF))
 #define toPtr(cnt, pNode) ((void*)((unsigned __int64)pNode | (cnt << 43)))
@@ -95,21 +90,11 @@ public:
 	CObjectFreeList(bool runConstructor, bool runDestructor, int _capacity = 0);
 	~CObjectFreeList();
 
-
-	#if defined(OBJECT_FREE_LIST_DEBUG)
-		T* _allocObject(const wchar_t*, int);
-	#else
-		T* _allocObject();
-	#endif
-	
-	#if defined(OBJECT_FREE_LIST_DEBUG)
-		int _freeObject(T* data, const wchar_t*, int);
-	#else
-		int _freeObject(T* data);
-	#endif
+	T* _allocObject(const wchar_t*, int);
+	int _freeObject(T* data, const wchar_t*, int);
 
 	inline unsigned int getCapacity() { return _capacity; }
-	inline unsigned int getUsedCount() { return _usedCnt; }
+	inline int getUsedCount() { return _usedCnt; }
 
 private:
 
@@ -118,13 +103,13 @@ private:
 
 	// 사용 가능한 노드를 리스트의 형태로 저장합니다.
 	// 할당하면 제거합니다.
-	void* _freePtr;
+	volatile void* _freePtr;
 
 	// 전체 노드 개수
 	unsigned int _capacity;
 
 	// 현재 할당된 노드 개수
-	unsigned int _usedCnt;
+	int _usedCnt;
 
 	// 메모리 정리용
 	// 단순 리스트
@@ -135,7 +120,7 @@ private:
 
 	// freeList 소멸자에서 메모리 정리용으로 사용합니다.
 	// new한 포인터들
-	stSimpleListNode* _totalAllocList;
+	volatile stSimpleListNode* _totalAllocList;
 		
 	// 리스트 변경 횟수
 	// ABA 문제를 회피하기 위해 사용합니다.
@@ -174,6 +159,10 @@ CObjectFreeList<T>::CObjectFreeList(bool runConstructor, bool runDestructor, int
 		log.setPrintGroup(LOG_GROUP::LOG_DEBUG);
 	#endif
 
+	if (size == 0) {
+		return;
+	}
+
 	for(int nodeCnt = 0; nodeCnt < size; ++nodeCnt){
 
 		// 미리 만들어놓을 개수만큼 노드를 만들어 놓음
@@ -186,7 +175,7 @@ CObjectFreeList<T>::CObjectFreeList(bool runConstructor, bool runDestructor, int
 			newNode->init();
 		}
 
-		newNode->_nextPtr = _freePtr;
+		newNode->_nextPtr = (void*)_freePtr;
 		_freePtr = newNode;
 
 		{
@@ -195,7 +184,7 @@ CObjectFreeList<T>::CObjectFreeList(bool runConstructor, bool runDestructor, int
 			stSimpleListNode* totalAllocNode = (stSimpleListNode*)HeapAlloc(_heap, 0, sizeof(stSimpleListNode));
 
 			totalAllocNode->_ptr = newNode;
-			totalAllocNode->_next = _totalAllocList;
+			totalAllocNode->_next = (stSimpleListNode*)_totalAllocList;
 
 			_totalAllocList = totalAllocNode;
 
@@ -218,8 +207,8 @@ CObjectFreeList<T>::~CObjectFreeList() {
 	#endif
 
 	while(_totalAllocList != nullptr){
-		stSimpleListNode* allocListNode = _totalAllocList;
-		stAllocNode<T>* freeNode = allocListNode->_ptr;
+		stSimpleListNode* allocListNode = (stSimpleListNode*)_totalAllocList;
+		stAllocNode<T>* freeNode = (stAllocNode<T>*)allocListNode->_ptr;
 
 		#if defined(OBJECT_FREE_LIST_DEBUG)
 			if(freeNode->_allocated == true){
@@ -249,9 +238,9 @@ CObjectFreeList<T>::~CObjectFreeList() {
 		if(freeNode->_callDestructor == false){
 			freeNode->~stAllocNode();
 		}
-		HeapFree(_heap, 0, freeNode);
+		HeapFree(_heap, 0, (LPVOID)freeNode);
 		_totalAllocList = allocListNode->_next;
-		HeapFree(_heap, 0, allocListNode);
+		HeapFree(_heap, 0, (LPVOID)allocListNode);
 	}
 	
 	#if defined(OBJECT_FREE_LIST_DEBUG)
@@ -263,13 +252,9 @@ CObjectFreeList<T>::~CObjectFreeList() {
 }
 
 template<typename T>
-T* CObjectFreeList<T>::_allocObject(
-	#if defined(OBJECT_FREE_LIST_DEBUG)
-		const wchar_t* fileName, int line
-	#endif
-) {
+T* CObjectFreeList<T>::_allocObject(const wchar_t* fileName, int line) {
 	
-	InterlockedIncrement(&_usedCnt);
+	InterlockedIncrement((LONG*)&_usedCnt);
 	
 	stAllocNode<T>* allocNode;
 
@@ -282,7 +267,7 @@ T* CObjectFreeList<T>::_allocObject(
 
 	do {
 		// 원본 데이터 복사
-		freePtr = _freePtr;
+		freePtr = (void*)_freePtr;
 		nodeChangeCnt = _nodeChangeCnt;
 
 		allocNode = toNode(freePtr);
@@ -318,7 +303,7 @@ T* CObjectFreeList<T>::_allocObject(
 
 		}
 
-		nextPtr = allocNode->_nextPtr;
+		nextPtr = (void*)allocNode->_nextPtr;
 
 	} while(InterlockedCompareExchange64((LONG64*)&_freePtr, (LONG64)nextPtr, (LONG64)freePtr) != (LONG64)freePtr);
 	
@@ -345,13 +330,9 @@ T* CObjectFreeList<T>::_allocObject(
 }
 
 template <typename T>
-int CObjectFreeList<T>::_freeObject(T* data	
-	#if defined(OBJECT_FREE_LIST_DEBUG)
-		, const wchar_t* fileName, int line
-	#endif
-) {
+int CObjectFreeList<T>::_freeObject(T* data, const wchar_t* fileName, int line) {
 
-	stAllocNode<T>* usedNode = (stAllocNode<T>*)(((char*)data) + objectFreeList::DATA_TO_NODE_PTR);
+	stAllocNode<T>* usedNode = (stAllocNode<T>*)(((char*)data) + objectFreeList::DATA_PTR_TO_NODE_PTR);
 	
 	#if defined(OBJECT_FREE_LIST_DEBUG)
 		// 중복 free 체크
@@ -389,7 +370,7 @@ int CObjectFreeList<T>::_freeObject(T* data
 	do {
 
 		// 원본 데이터 복사
-		freePtr = _freePtr;
+		freePtr = (void*)_freePtr;
 		nodeChangeCnt = _nodeChangeCnt;
 			
 		// 사용했던 노드의 next를 현재 top으로 변경
@@ -399,7 +380,7 @@ int CObjectFreeList<T>::_freeObject(T* data
 
 	} while(InterlockedCompareExchange64((LONG64*)&_freePtr, (LONG64)nextPtr, (LONG64)freePtr) != (LONG64)freePtr);
 	
-	InterlockedDecrement(&_usedCnt);
+	InterlockedDecrement((LONG*)&_usedCnt);
 
 	return 0;
 

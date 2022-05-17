@@ -61,8 +61,6 @@ private:
 	int _chunkListIndex;
 	stSimpleList* _chunkListArr[objectFreeListTLS::MAX_THREAD_NUM];
 
-	HANDLE _heap;
-
 	CLog log;
 #endif
 };
@@ -96,13 +94,13 @@ CObjectFreeListTLS<T>::CObjectFreeListTLS(bool runConstructor, bool runDestructo
 
 #if defined(OBJECT_FREE_LIST_TLS_DEBUG)
 
-	_heap = HeapCreate(0, 0, 0);
-
 	_chunkListIndex = 0;
 
 	for (int chunkListCnt = 0; chunkListCnt < objectFreeListTLS::MAX_THREAD_NUM; ++chunkListCnt) {
 		// 청크 리스트를 tls에서 획득하고 저장하는데 계속 null이면 index를 계속 증가시킬 것이기 때문에 더미 노드를 넣어줌
-		_chunkListArr[chunkListCnt] = (stSimpleList*)HeapAlloc(_heap, HEAP_ZERO_MEMORY, sizeof(stSimpleList));
+		_chunkListArr[chunkListCnt] = (stSimpleList*)malloc(sizeof(stSimpleList));
+		ZeroMemory(_chunkListArr[chunkListCnt], sizeof(stSimpleList));
+			//(stSimpleList*)HeapAlloc(_heap, HEAP_ZERO_MEMORY, sizeof(stSimpleList));
 	}
 
 	log.setDirectory(L"objectFreeListTLS_Log");
@@ -168,7 +166,6 @@ CObjectFreeListTLS<T>::~CObjectFreeListTLS() {
 	log(L"memoryLeak.txt", LOG_GROUP::LOG_DEBUG, L"───────────────────────────────────────────");
 
 	TlsFree(_chunkListTlsIdx);
-	HeapDestroy(_heap);
 
 #endif
 
@@ -201,13 +198,15 @@ typename T* CObjectFreeListTLS<T>::_allocObject(const wchar_t* fileName,int line
 		chunk->init();
 		TlsSetValue(_allocChunkTlsIdx, chunk);
 
-#if defined(OBJECT_FREE_LIST_TLS_DEBUG)
-		stSimpleList* node = (stSimpleList*)HeapAlloc(_heap, HEAP_ZERO_MEMORY, sizeof(stSimpleList));
-		node->_chunk = chunk;
-		node->_next = list;
-		list = node;
-		_chunkListArr[chunkListIndex] = node;
-#endif
+		#if defined(OBJECT_FREE_LIST_TLS_DEBUG)
+			stSimpleList* node = (stSimpleList*)malloc(sizeof(stSimpleList));
+			ZeroMemory(node, sizeof(stSimpleList));
+
+			node->_chunk = chunk;
+			node->_next = list;
+			list = node;
+			_chunkListArr[chunkListIndex] = node;
+		#endif
 
 	}
 	///////////////////////////////////////////////////////////////////////
@@ -239,7 +238,8 @@ typename T* CObjectFreeListTLS<T>::_allocObject(const wchar_t* fileName,int line
 		TlsSetValue(_allocChunkTlsIdx, chunk);
 
 #if defined(OBJECT_FREE_LIST_TLS_DEBUG)
-		stSimpleList* node = (stSimpleList*)HeapAlloc(_heap, HEAP_ZERO_MEMORY, sizeof(stSimpleList));
+		stSimpleList* node = (stSimpleList*)malloc(sizeof(stSimpleList));
+		ZeroMemory(node, sizeof(stSimpleList));
 		node->_chunk = chunk;
 		node->_next = list;
 		_chunkListArr[chunkListIndex] = node;

@@ -5,8 +5,8 @@
 #include <DbgHelp.h>
 #include <thread>
 
-#include "lib/profiler/headers/profiler.h"
-#pragma comment(lib, "lib/profiler/profiler")
+//#include "lib/profiler/headers/profiler.h"
+//#pragma comment(lib, "lib/profiler/profiler")
 
 #include "../headers/ObjectFreeList.h"
 
