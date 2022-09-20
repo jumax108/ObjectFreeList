@@ -97,9 +97,6 @@ public:
 
 private:
 
-	// 메모리 할당, 해제를 위한 힙
-	HANDLE _heap;
-
 	// 사용 가능한 노드를 리스트의 형태로 저장합니다.
 	// 할당하면 제거합니다.
 	stAllocNode<T>* _freeNode;
@@ -138,8 +135,6 @@ private:
 template <typename T>
 CObjectFreeList<T>::CObjectFreeList(bool runConstructor, bool runDestructor, int size) {
 	
-	_heap = HeapCreate(0, 0, 0);
-
 	_freeNode = nullptr;
 	_totalAllocList = nullptr;
 	
@@ -161,7 +156,7 @@ CObjectFreeList<T>::CObjectFreeList(bool runConstructor, bool runDestructor, int
 	for(int nodeCnt = 0; nodeCnt < size; ++nodeCnt){
 
 		// 미리 만들어놓을 개수만큼 노드를 만들어 놓음
-		stAllocNode<T>* newNode = (stAllocNode<T>*)HeapAlloc(_heap, 0, sizeof(stAllocNode<T>));
+		stAllocNode<T>* newNode = (stAllocNode<T>*)malloc(sizeof(stAllocNode<T>));
 
 		// T type에 대한 생성자 호출 여부를 결정
 		if(runConstructor == false) {
@@ -176,7 +171,7 @@ CObjectFreeList<T>::CObjectFreeList(bool runConstructor, bool runDestructor, int
 		{
 			// 전체 alloc list에 추가
 			// 소멸자에서 일괄적으로 메모리 해제하기 위함
-			stSimpleListNode* totalAllocNode = (stSimpleListNode*)HeapAlloc(_heap, 0, sizeof(stSimpleListNode));
+			stSimpleListNode* totalAllocNode = (stSimpleListNode*)malloc(sizeof(stSimpleListNode));
 
 			totalAllocNode->_ptr = newNode;
 			totalAllocNode->_next = _totalAllocList;
@@ -233,16 +228,14 @@ CObjectFreeList<T>::~CObjectFreeList() {
 		if(freeNode->_callDestructor == false){
 			freeNode->~stAllocNode();
 		}
-		HeapFree(_heap, 0, freeNode);
+		free(freeNode);
 		_totalAllocList = allocListNode->_next;
-		HeapFree(_heap, 0, allocListNode);
+		free(allocListNode);
 	}
 	
 	#if defined(OBJECT_FREE_LIST_DEBUG)
 		log(L"memoryLeak.txt", LOG_GROUP::LOG_DEBUG, L"────────────────────────────────");
 	#endif
-
-	HeapDestroy(_heap);
 
 }
 
@@ -260,16 +253,16 @@ T* CObjectFreeList<T>::_allocObject(const wchar_t* fileName, int line) {
 			// 노드가 없으면 새로 할당
 			if(_freeNode == nullptr){
 			
-				allocNode = (stAllocNode<T>*)HeapAlloc(_heap, 0, sizeof(stAllocNode<T>));
+				allocNode = (stAllocNode<T>*)malloc(sizeof(stAllocNode<T>));
 				
 				// T type에 대한 생성자 호출 여부를 결정
-				if(runConstructor == false) {
+				if(_runConstructor == false) {
 					new (allocNode) stAllocNode<T>;
 				} else {
 					allocNode->init();
 				}
 
-				stSimpleListNode* totalAllocNode = (stSimpleListNode*)HeapAlloc(_heap, 0, sizeof(stSimpleListNode));
+				stSimpleListNode* totalAllocNode = (stSimpleListNode*)malloc(sizeof(stSimpleListNode));
 
 				totalAllocNode->_ptr = allocNode;
 				totalAllocNode->_next = _totalAllocList;

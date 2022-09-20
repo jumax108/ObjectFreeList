@@ -98,9 +98,6 @@ public:
 
 private:
 
-	// 메모리 할당, 해제를 위한 힙
-//	HANDLE _heap;
-
 	// 사용 가능한 노드를 리스트의 형태로 저장합니다.
 	// 할당하면 제거합니다.
 	volatile void* _freePtr;
@@ -141,8 +138,6 @@ private:
 template <typename T>
 CObjectFreeList<T>::CObjectFreeList(bool runConstructor, bool runDestructor, int size) {
 	
-//	_heap = HeapCreate(0, 0, 0);
-
 	_freePtr = nullptr;
 	_totalAllocList = nullptr;
 	
@@ -168,7 +163,6 @@ CObjectFreeList<T>::CObjectFreeList(bool runConstructor, bool runDestructor, int
 		// 미리 만들어놓을 개수만큼 노드를 만들어 놓음
 		stAllocNode<T>* newNode = (stAllocNode<T>*)malloc(sizeof(stAllocNode<T>));
 		ZeroMemory(newNode, sizeof(stAllocNode<T>));
-			//HeapAlloc(_heap, 0, sizeof(stAllocNode<T>));
 
 		// T type에 대한 생성자 호출 여부를 결정
 		if(runConstructor == false) {
@@ -184,7 +178,6 @@ CObjectFreeList<T>::CObjectFreeList(bool runConstructor, bool runDestructor, int
 			// 전체 alloc list에 추가
 			// 소멸자에서 일괄적으로 메모리 해제하기 위함
 			stSimpleListNode* totalAllocNode = (stSimpleListNode*)malloc(sizeof(stSimpleListNode));
-				//HeapAlloc(_heap, 0, sizeof(stSimpleListNode));
 
 			totalAllocNode->_ptr = newNode;
 			totalAllocNode->_next = (stSimpleListNode*)_totalAllocList;
@@ -241,18 +234,15 @@ CObjectFreeList<T>::~CObjectFreeList() {
 		if(freeNode->_callDestructor == false){
 			freeNode->~stAllocNode();
 		}
+
 		free(freeNode);
-		//HeapFree(_heap, 0, (LPVOID)freeNode);
 		_totalAllocList = allocListNode->_next;
 		free(allocListNode);
-		//HeapFree(_heap, 0, (LPVOID)allocListNode);
 	}
 	
 	#if defined(OBJECT_FREE_LIST_DEBUG)
 		log(L"memoryLeak.txt", LOG_GROUP::LOG_DEBUG, L"────────────────────────────────");
 	#endif
-
-	//HeapDestroy(_heap);
 
 }
 
@@ -282,7 +272,6 @@ T* CObjectFreeList<T>::_allocObject(const wchar_t* fileName, int line) {
 			// 추가 할당
 			allocNode = (stAllocNode<T>*)malloc(sizeof(stAllocNode<T>));
 			ZeroMemory(allocNode, sizeof(stAllocNode<T>));
-			//HeapAlloc(_heap, 0, sizeof(stAllocNode<T>));
 			if(_runConstructor == false) {
 				new (allocNode) stAllocNode<T>;
 			} else {
@@ -292,7 +281,7 @@ T* CObjectFreeList<T>::_allocObject(const wchar_t* fileName, int line) {
 			#if defined(OBJECT_FREE_LIST_DEBUG)
 				// 전체 alloc list에 추가
 				// 소멸자에서 일괄적으로 메모리 해제하기 위함
-				stSimpleListNode* totalAllocNode = (stSimpleListNode*)HeapAlloc(_heap, 0, sizeof(stSimpleListNode));
+				stSimpleListNode* totalAllocNode = (stSimpleListNode*)malloc(sizeof(stSimpleListNode));
 				stSimpleListNode* totalAllocList;
 
 				do {
@@ -304,6 +293,7 @@ T* CObjectFreeList<T>::_allocObject(const wchar_t* fileName, int line) {
 
 				} while( InterlockedCompareExchange64((LONG64*)&_totalAllocList, (LONG64)totalAllocNode, (LONG64)totalAllocList) != (LONG64)totalAllocList );
 			#endif
+
 			_capacity += 1;
 
 			break;
