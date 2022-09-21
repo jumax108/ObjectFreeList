@@ -91,10 +91,10 @@ public:
 	~CObjectFreeList();
 
 	T* _allocObject(const wchar_t*, int);
-	int _freeObject(T* data, const wchar_t*, int);
+	void _freeObject(T* data, const wchar_t*, int);
 
 	inline unsigned int getCapacity() { return _capacity; }
-	inline int getUsedCount() { return _usedCnt; }
+	inline int getUsedCount() { return _usedCnt; }z
 
 private:
 
@@ -327,9 +327,9 @@ T* CObjectFreeList<T>::_allocObject(const wchar_t* fileName, int line) {
 }
 
 template <typename T>
-int CObjectFreeList<T>::_freeObject(T* data, const wchar_t* fileName, int line) {
+void CObjectFreeList<T>::_freeObject(T* data, const wchar_t* fileName, int line) {
 
-	stAllocNode<T>* usedNode = (stAllocNode<T>*)(((char*)data) + objectFreeList::DATA_PTR_TO_NODE_PTR);
+	stAllocNode<T>* usedNode = (stAllocNode<T>*)(((char*)data) + nsObjectFreeList::DATA_PTR_TO_NODE_PTR);
 	
 	#if defined(OBJECT_FREE_LIST_DEBUG)
 		// 중복 free 체크
@@ -378,7 +378,5 @@ int CObjectFreeList<T>::_freeObject(T* data, const wchar_t* fileName, int line) 
 	} while(InterlockedCompareExchange64((LONG64*)&_freePtr, (LONG64)nextPtr, (LONG64)freePtr) != (LONG64)freePtr);
 	
 	InterlockedDecrement((LONG*)&_usedCnt);
-
-	return 0;
 
 }
