@@ -89,7 +89,7 @@ public:
 	~CObjectFreeList();
 
 	T* _allocObject(const wchar_t*, int);
-	int _freeObject(T* data, const wchar_t*, int);
+	void _freeObject(T* data, const wchar_t*, int);
 
 	inline unsigned int getCapacity() { return _capacity; }
 	inline unsigned int getUsedCount() { return _usedCnt; }
@@ -315,7 +315,7 @@ T* CObjectFreeList<T>::_allocObject(const wchar_t* fileName, int line) {
 }
 
 template <typename T>
-int CObjectFreeList<T>::_freeObject(T* data	, const wchar_t* fileName, int line) {
+void CObjectFreeList<T>::_freeObject(T* data	, const wchar_t* fileName, int line) {
 
 	AcquireSRWLockExclusive(&_lock); {
 
@@ -363,6 +363,5 @@ int CObjectFreeList<T>::_freeObject(T* data	, const wchar_t* fileName, int line)
 
 	} ReleaseSRWLockExclusive(&_lock);
 
-	return 0;
 
 }
