@@ -94,7 +94,7 @@ public:
 	void _freeObject(T* data, const wchar_t*, int);
 
 	inline unsigned int getCapacity() { return _capacity; }
-	inline int getUsedCount() { return _usedCnt; }z
+	inline int getUsedCount() { return _usedCnt; }
 
 private:
 
